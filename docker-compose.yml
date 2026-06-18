@@ -1,0 +1,73 @@
+services:
+  php-fpm:
+    build:
+      context: .
+      args:
+        WWWGROUP: ${GID:-1000}
+        WWWUSER: ${UID:-1000}
+      dockerfile: docker/php-fpm/Dockerfile
+    container_name: coc-clan-management-php-fpm
+    working_dir: /var/www/html
+    user: "www-data:www-data"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - coc-clan-management
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: coc-clan-management-nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php-fpm
+    networks:
+      - coc-clan-management
+
+  mysql:
+    image: mysql:8.4
+    container_name: coc-clan-management-mysql
+    ports:
+      - "33068:3306"
+    environment:
+      MYSQL_DATABASE: clan_manager
+      MYSQL_USER: clan_manager
+      MYSQL_PASSWORD: '123@mudar'
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - coc-clan-management
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: coc-clan-management-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - coc-clan-management
+
+  node:
+    image: node:22-alpine
+    container_name: coc-clan-management-node
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "5175:5175"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - coc-clan-management
+
+networks:
+  coc-clan-management:
+    driver: bridge
+
+volumes:
+  mysql-data:

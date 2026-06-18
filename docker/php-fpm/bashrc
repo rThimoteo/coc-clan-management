@@ -1,0 +1,33 @@
+if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+fi
+
+if [ -f /var/www/html/artisan ]; then
+    eval "$(php /var/www/html/artisan completion bash)"
+
+    _php_artisan_completion()
+    {
+        if [ "${COMP_CWORD}" -eq 1 ]; then
+            COMPREPLY=($(compgen -W "artisan" -- "${COMP_WORDS[COMP_CWORD]}"))
+            return
+        fi
+
+        if [ "${COMP_WORDS[1]}" != "artisan" ]; then
+            COMPREPLY=()
+            return
+        fi
+
+        local original_words=("${COMP_WORDS[@]}")
+        local original_cword="${COMP_CWORD}"
+
+        COMP_WORDS=("artisan" "${COMP_WORDS[@]:2}")
+        COMP_CWORD=$((COMP_CWORD - 1))
+
+        _sf_artisan
+
+        COMP_WORDS=("${original_words[@]}")
+        COMP_CWORD="${original_cword}"
+    }
+
+    complete -F _php_artisan_completion php
+fi
