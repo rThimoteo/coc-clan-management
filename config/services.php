@@ -38,7 +38,6 @@ return [
     'clash_of_clans' => [
         'base_url' => env('CLASH_OF_CLANS_API_URL', 'https://api.clashofclans.com/v1'),
         'token' => env('CLASH_OF_CLANS_API_TOKEN'),
-        'clan_tag' => env('CLASH_OF_CLANS_CLAN_TAG'),
         'demo_mode' => env('CLASH_OF_CLANS_DEMO_MODE', false),
     ],
 
