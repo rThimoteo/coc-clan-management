@@ -11,13 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->timestamps();
+        });
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('username')->unique();
-            $table->string('player_tag')->unique();
-            $table->string('player_name');
-            $table->string('clan_role')->nullable();
-            $table->string('password');
+            $table->foreignId('role_id')->constrained()->restrictOnDelete();
+            $table->string('name')->unique();
+            $table->string('access_code');
             $table->rememberToken();
             $table->timestamps();
         });
@@ -39,5 +44,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('roles');
     }
 };

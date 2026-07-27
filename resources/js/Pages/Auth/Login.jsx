@@ -1,20 +1,17 @@
-import Checkbox from '@/Components/Checkbox';
 import InputError from '@/Components/InputError';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 
 export default function Login({ status }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        username: '',
-        password: '',
-        remember: false,
+        access_code: '',
     });
 
     const submit = (event) => {
         event.preventDefault();
 
         post(route('login'), {
-            onFinish: () => reset('password'),
+            onFinish: () => reset('access_code'),
         });
     };
 
@@ -22,7 +19,7 @@ export default function Login({ status }) {
         <GuestLayout
             eyebrow="ÁREA DO CLÃ"
             title="A guerra começa com organização."
-            description="Entre com suas credenciais para acessar a central de gerenciamento."
+            description="Use seu código de acesso para entrar na central de gerenciamento."
         >
             <Head title="Entrar" />
 
@@ -34,64 +31,31 @@ export default function Login({ status }) {
 
             <form onSubmit={submit} className="space-y-5">
                 <div>
-                    <label className="auth-label" htmlFor="username">
-                        Usuário
+                    <label className="auth-label" htmlFor="access_code">
+                        Código de acesso
                     </label>
                     <input
-                        id="username"
-                        name="username"
-                        value={data.username}
+                        id="access_code"
+                        name="access_code"
+                        type="password"
+                        value={data.access_code}
                         className="auth-input"
-                        autoComplete="username"
+                        autoComplete="off"
                         autoFocus
                         onChange={(event) =>
-                            setData('username', event.target.value)
+                            setData('access_code', event.target.value)
                         }
                         required
                     />
-                    <InputError message={errors.username} className="mt-2" />
-                </div>
-
-                <div>
-                    <label className="auth-label" htmlFor="password">
-                        Senha
-                    </label>
-                    <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        value={data.password}
-                        className="auth-input"
-                        autoComplete="current-password"
-                        onChange={(event) =>
-                            setData('password', event.target.value)
-                        }
-                        required
+                    <InputError
+                        message={errors.access_code}
+                        className="mt-2"
                     />
-                    <InputError message={errors.password} className="mt-2" />
                 </div>
-
-                <label className="flex cursor-pointer items-center gap-3 text-sm text-stone-400">
-                    <Checkbox
-                        name="remember"
-                        checked={data.remember}
-                        onChange={(event) =>
-                            setData('remember', event.target.checked)
-                        }
-                    />
-                    Manter conectado
-                </label>
 
                 <button className="auth-button" disabled={processing}>
                     {processing ? 'Entrando...' : 'Entrar na central'}
                 </button>
-
-                <p className="text-center text-sm text-stone-400">
-                    Ainda não tem acesso?{' '}
-                    <Link className="auth-link" href={route('register')}>
-                        Criar conta
-                    </Link>
-                </p>
             </form>
         </GuestLayout>
     );

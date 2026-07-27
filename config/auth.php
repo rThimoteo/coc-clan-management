@@ -114,4 +114,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Initial administrator access code
+    |--------------------------------------------------------------------------
+    |
+    | The database seeder hashes this code when creating or updating the
+    | initial administrator access.
+    |
+    */
+
+    'admin_access_code' => env('ADMIN_ACCESS_CODE'),
+
 ];
