@@ -2,9 +2,8 @@
 
 Sistema web para gerenciamento de clãs de Clash of Clans.
 
-O projeto está em desenvolvimento. A primeira etapa entrega autenticação por
-usuário e senha, vinculando cada conta a uma player tag de jogador. No cadastro, o backend consulta a API oficial e permite somente jogadores pertencentes aos clãs
-configurados.
+O projeto está em desenvolvimento. A autenticação não usa username ou senha:
+cada pessoa autorizada entra usando somente seu código de acesso.
 
 ## Tecnologias
 
@@ -18,16 +17,30 @@ configurados.
 
 ## Funcionalidades atuais
 
-- Cadastro com username, senha e player tag.
+- Login com um único campo: código de acesso.
+- Código armazenado somente como hash no banco.
+- Primeiro acesso administrativo criado pelo seeder.
+- Papéis normalizados na tabela `roles`: `admin`, `leader`, `co_leader` e `member`.
+- Área autenticada com menu lateral, top bar e edição do nome do perfil.
+- Configuração da tag e identidade do clã no banco, restrita a administradores.
+- Painel local de membros com sincronização manual pela API do jogo.
+- Histórico de membros preservado pelos status `in` e `out`.
+- Histórico de guerras sincronizado com captura persistente de ataques e defesas.
+- Detalhes de guerra com ataques dos membros e modal de defesas.
+- Administração de usuários e códigos numéricos de seis dígitos.
+- Vínculo de várias contas do jogo a um único usuário.
 - Login e logout com sessão Laravel.
-- Validação do jogador pela API oficial do Clash of Clans.
-- Player tag única por usuário.
-- Modo de demonstração sem dependência da API externa.
 - Dashboard inicial protegido por autenticação.
 
-> [!IMPORTANT]
-> A validação atual confirma que a player tag existe e pertence a um clã
-> autorizado, mas ainda não comprova que o visitante controla a conta do jogo.
+### Permissões
+
+- `admin`: configura o clã, administra usuários e sincroniza dados.
+- `leader` e `co_leader`: visualizam e sincronizam membros e guerras.
+- `member`: possui acesso somente para visualização e não pode sincronizar.
+
+Os códigos gerados pela administração são exibidos apenas no momento da criação
+ou regeneração. Como somente o hash é persistido, não existe uma opção para
+consultar posteriormente um código já criado.
 
 ## Executando com Docker
 
@@ -52,6 +65,17 @@ Crie o arquivo de ambiente:
 cp .env.example .env
 ```
 
+Antes de iniciar, substitua o código administrativo de exemplo por um valor
+longo e secreto:
+
+```env
+ADMIN_ACCESS_CODE=seu-codigo-inicial-seguro
+```
+
+As migrations executam os seeders necessários para criar os papéis, status e o
+acesso administrativo inicial. O código administrativo recebe o papel `admin`
+e não é salvo em texto puro.
+
 Construa e inicie os containers:
 
 ```bash
@@ -75,21 +99,14 @@ Acesse:
 http://localhost:8081
 ```
 
-## Modo de demonstração
+## Modo de demonstração da API
 
-O `.env.example` vem preparado para testar o cadastro sem criar uma chave na
-API do Clash of Clans:
+O `.env.example` vem preparado para usar os serviços do Clash of Clans sem
+criar uma chave na API:
 
 ```env
 APP_ENV=local
-CLASH_OF_CLANS_CLAN_TAG="#QGRJ2"
 CLASH_OF_CLANS_DEMO_MODE=true
-```
-
-Na tela de cadastro, use qualquer player tag com formato válido, por exemplo:
-
-```text
-#PQLG2
 ```
 
 ## Usando a API oficial
@@ -101,14 +118,7 @@ e configure o `.env`:
 ```env
 CLASH_OF_CLANS_API_URL=https://api.clashofclans.com/v1
 CLASH_OF_CLANS_API_TOKEN=seu_token
-CLASH_OF_CLANS_CLAN_TAG="#TAG_DO_CLA"
 CLASH_OF_CLANS_DEMO_MODE=false
-```
-
-Para autorizar múltiplos clãs, separe as tags com `|`:
-
-```env
-CLASH_OF_CLANS_CLAN_TAG="#TAG_CLA_1|#TAG_CLA_2|#TAG_CLA_3"
 ```
 
 Depois de alterar o ambiente:
@@ -116,6 +126,15 @@ Depois de alterar o ambiente:
 ```bash
 docker compose exec php-fpm php artisan config:clear
 ```
+
+A tag do clã não é configurada no `.env`. Depois de entrar com o acesso
+administrativo, use **Administração → Configurar clã**. O sistema valida a tag
+na API antes de salvá-la.
+
+O histórico de guerras do clã precisa estar público no Clash of Clans. A
+sincronização guarda os resumos do war log e captura os detalhes da guerra
+atual ou recém-encerrada enquanto a API ainda os disponibiliza. Entradas
+agregadas sem tag de oponente não são persistidas.
 
 ## Comandos úteis
 
@@ -143,11 +162,16 @@ Parar os containers:
 docker compose down
 ```
 
-## Estrutura inicial do banco
+## Estrutura do banco
 
-A migration inicial cria apenas:
-
-- `users`: credenciais e identidade do jogador no Clash of Clans.
+- `roles`: papéis de autorização definidos pelo enum `UserRole`.
+- `users`: nome interno, hash do código de acesso e referência ao papel.
+- `clans`: tag, nome e emblema do clã configurado.
+- `member_statuses`: estados de vínculo definidos pelo enum `MemberStatus`.
+- `members`: contas do jogo conhecidas, status e vínculo opcional com um usuário.
+- `wars`: placares, oponentes, resultado e disponibilidade de detalhes.
+- `war_members`: participantes de cada lado da guerra.
+- `war_attacks`: ataques e defesas disponíveis nos detalhes capturados.
 - `sessions`: sessões autenticadas da aplicação.
 
 Cache usa arquivos locais e filas são executadas de forma síncrona nesta fase.
@@ -159,29 +183,26 @@ Cache usa arquivos locais e filas são executadas de forma síncrona nesta fase.
 - [x] Configurar Laravel, React e Inertia.js.
 - [x] Configurar ambiente Docker com Nginx, PHP, MySQL e Node.
 - [x] Criar migration inicial sem tabelas especulativas.
-- [x] Adicionar testes automatizados de autenticação e cadastro.
-- [x] Documentar decisões técnicas em `architecture.md`.
+- [x] Adicionar testes automatizados para autenticação e regras de acesso.
 
 ### Autenticação
 
-- [x] Cadastro com username, senha e player tag.
-- [x] Login por username e senha.
+- [x] Bootstrap do primeiro administrador pelo seeder.
+- [x] Login somente por código de acesso.
+- [x] Definir papéis `admin`, `leader`, `co_leader` e `member`.
 - [x] Logout e proteção do dashboard.
-- [x] Validar jogador pela API oficial.
-- [x] Restringir cadastro aos clãs configurados.
-- [x] Permitir múltiplos clãs.
-- [x] Impedir player tags duplicadas.
-- [x] Criar modo de demonstração.
-- [ ] Comprovar posse da conta usando o token pessoal do jogador.
-- [ ] Definir fluxo seguro de recuperação de acesso.
-- [ ] Revalidar periodicamente clã e cargo do jogador.
+- [x] Criar gestão administrativa de acessos.
+- [x] Gerar e regenerar códigos de seis dígitos.
+- [x] Vincular usuários a múltiplas contas do jogo.
+- [x] Aplicar autorização por papel nas funcionalidades.
 
 ### Gerenciamento do clã
 
 - [ ] Criar dashboard operacional.
-- [ ] Sincronizar dados dos clãs e jogadores.
+- [x] Configurar e validar o clã pela API oficial.
+- [x] Sincronizar e preservar o histórico de membros.
+- [x] Registrar histórico de guerras.
+- [x] Capturar ataques e defesas detalhados disponíveis.
 - [ ] Criar inscrições para Liga de Guerra de Clãs.
-- [ ] Registrar histórico de guerras.
 - [ ] Registrar histórico de CWL.
 - [ ] Criar métricas de desempenho por jogador.
-- [ ] Criar permissões administrativas para líderes e colíderes.
