@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+#[Fillable([
+    'external_key',
+    'state',
+    'result',
+    'team_size',
+    'preparation_start_time',
+    'start_time',
+    'end_time',
+    'has_details',
+    'clan_attacks',
+    'clan_stars',
+    'clan_destruction_percentage',
+    'opponent_tag',
+    'opponent_name',
+    'opponent_badge_url',
+    'opponent_attacks',
+    'opponent_stars',
+    'opponent_destruction_percentage',
+])]
+class War extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'preparation_start_time' => 'datetime',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
+            'has_details' => 'boolean',
+            'clan_destruction_percentage' => 'float',
+            'opponent_destruction_percentage' => 'float',
+        ];
+    }
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(WarMember::class);
+    }
+
+    public function attacks(): HasMany
+    {
+        return $this->hasMany(WarAttack::class);
+    }
+}
