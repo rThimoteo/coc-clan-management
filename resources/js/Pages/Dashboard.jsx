@@ -1,24 +1,47 @@
-import { Head, Link } from '@inertiajs/react';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head } from '@inertiajs/react';
+
+const metrics = [
+    { label: 'Membros ativos', value: '—', note: 'Aguardando sincronização' },
+    { label: 'Guerras no mês', value: '—', note: 'Nenhum dado registrado' },
+    { label: 'Taxa de vitória', value: '—', note: 'Histórico ainda vazio' },
+];
 
 export default function Dashboard() {
     return (
-        <>
-            <Head title="Dashboard" />
-            <main className="flex min-h-screen items-center justify-center bg-stone-950 text-stone-100">
-                <div className="text-center">
-                    <h1 className="font-display text-5xl font-black tracking-tight">
-                        Dashboard
-                    </h1>
-                    <Link
-                        href={route('logout')}
-                        method="post"
-                        as="button"
-                        className="mt-6 text-sm text-stone-500 transition hover:text-amber-400"
-                    >
-                        Sair
-                    </Link>
+        <AuthenticatedLayout
+            header="Visão geral"
+            eyebrow="PAINEL DE COMANDO"
+        >
+            <Head title="Visão geral" />
+
+            <section className="dashboard-grid">
+                {metrics.map((metric, index) => (
+                    <article className="metric-card" key={metric.label}>
+                        <div className="metric-index">0{index + 1}</div>
+                        <p>{metric.label}</p>
+                        <strong>{metric.value}</strong>
+                        <span>{metric.note}</span>
+                    </article>
+                ))}
+            </section>
+
+            <section className="empty-command-card">
+                <div className="empty-command-symbol">
+                    <span />
+                    <span />
+                    <span />
                 </div>
-            </main>
-        </>
+                <div>
+                    <p className="section-kicker">PRÓXIMA MISSÃO</p>
+                    <h2>Sua central está pronta.</h2>
+                    <p>
+                        Os módulos operacionais aparecerão aqui conforme o
+                        gerenciamento do clã evoluir.
+                    </p>
+                </div>
+                <span className="empty-command-code">HQ·001</span>
+            </section>
+        </AuthenticatedLayout>
     );
 }
