@@ -1,5 +1,8 @@
+import FilterPopover from '@/Components/FilterPopover';
+import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 const statusLabels = {
     in: 'No clã',
@@ -13,15 +16,62 @@ const roleLabels = {
     member: 'Membro',
 };
 
-export default function Index({ members, clan }) {
+export default function Index({
+    members,
+    clan,
+    memberStats,
+    filters,
+    filterOptions,
+}) {
     const { auth, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
-    const inClan = members.filter((member) => member.status.slug === 'in').length;
-    const outClan = members.length - inClan;
+    const [filterForm, setFilterForm] = useState({
+        search: filters.search ?? '',
+        town_hall: filters.townHall ?? '',
+        role: filters.role ?? '',
+        status: filters.status ?? 'in',
+        sort: filters.sort ?? 'name',
+        direction: filters.direction ?? 'asc',
+    });
 
     const sync = () => {
         post(route('members.sync'), { preserveScroll: true });
     };
+
+    const applyFilters = (event) => {
+        event.preventDefault();
+        router.get(route('members.index'), filterForm, {
+            preserveScroll: true,
+        });
+    };
+
+    const clearFilters = () => {
+        router.get(
+            route('members.index'),
+            { status: 'in' },
+            { preserveScroll: true },
+        );
+    };
+    const sortMembers = (column) => {
+        const nextFilters = {
+            ...filterForm,
+            sort: column,
+            direction:
+                filterForm.sort === column && filterForm.direction === 'asc'
+                    ? 'desc'
+                    : 'asc',
+        };
+
+        setFilterForm(nextFilters);
+        router.get(route('members.index'), nextFilters, {
+            preserveScroll: true,
+        });
+    };
+    const activeFilterCount = [
+        filterForm.status !== 'in',
+        Boolean(filterForm.town_hall),
+        Boolean(filterForm.role),
+    ].filter(Boolean).length;
 
     return (
         <AuthenticatedLayout header="Membros" eyebrow="ROSTER DO CLÃ">
@@ -30,15 +80,15 @@ export default function Index({ members, clan }) {
             <section className="members-summary">
                 <div>
                     <span>Total registrado</span>
-                    <strong>{members.length}</strong>
+                    <strong>{memberStats.total}</strong>
                 </div>
                 <div>
                     <span>No clã</span>
-                    <strong>{inClan}</strong>
+                    <strong>{memberStats.inClan}</strong>
                 </div>
                 <div>
                     <span>Fora do clã</span>
-                    <strong>{outClan}</strong>
+                    <strong>{memberStats.outClan}</strong>
                 </div>
                 <div className="members-sync-meta">
                     <span>Última sincronização</span>
@@ -80,7 +130,7 @@ export default function Index({ members, clan }) {
                             o histórico de quem deixou o clã.
                         </p>
                     </div>
-                    {auth.user.role !== 'member' && (
+                    {['admin', 'leader'].includes(auth.user.role) && (
                         <button
                             className="sync-button"
                             onClick={sync}
@@ -101,7 +151,59 @@ export default function Index({ members, clan }) {
                     </div>
                 )}
 
-                {members.length === 0 ? (
+                <div className="table-toolbar">
+                    <form className="table-search" onSubmit={applyFilters}>
+                        <input
+                            type="search"
+                            value={filterForm.search}
+                            placeholder="Nome do jogador"
+                            onChange={(event) =>
+                                setFilterForm({
+                                    ...filterForm,
+                                    search: event.target.value,
+                                })
+                            }
+                        />
+                        <button aria-label="Buscar">Buscar</button>
+                    </form>
+
+                    <FilterPopover activeCount={activeFilterCount}>
+                        <form className="popover-filter-form" onSubmit={applyFilters}>
+                            <label>
+                                <span>Status</span>
+                                <select value={filterForm.status} onChange={(event) => setFilterForm({ ...filterForm, status: event.target.value })}>
+                                    <option value="in">No clã</option>
+                                    <option value="out">Fora do clã</option>
+                                    <option value="all">Todos</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Centro de Vila</span>
+                                <select value={filterForm.town_hall} onChange={(event) => setFilterForm({ ...filterForm, town_hall: event.target.value })}>
+                                    <option value="">Todos os CVs</option>
+                                    {filterOptions.townHalls.map((level) => (
+                                        <option key={level} value={level}>CV {level}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label>
+                                <span>Cargo</span>
+                                <select value={filterForm.role} onChange={(event) => setFilterForm({ ...filterForm, role: event.target.value })}>
+                                    <option value="">Todos os cargos</option>
+                                    {filterOptions.roles.map((role) => (
+                                        <option key={role} value={role}>{roleLabels[role] ?? role}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <div className="filter-actions">
+                                <button type="button" onClick={clearFilters}>Limpar</button>
+                                <button className="is-primary">Aplicar filtros</button>
+                            </div>
+                        </form>
+                    </FilterPopover>
+                </div>
+
+                {members.data.length === 0 ? (
                     <div className="members-empty">
                         <div className="members-empty-mark">00</div>
                         <h3>Nenhum membro sincronizado.</h3>
@@ -115,17 +217,40 @@ export default function Index({ members, clan }) {
                         <table className="members-table">
                             <thead>
                                 <tr>
-                                    <th>Jogador</th>
-                                    <th>Cargo</th>
+                                    <SortableHeader
+                                        column="name"
+                                        label="Jogador"
+                                        filters={filterForm}
+                                        onSort={sortMembers}
+                                    />
+                                    <SortableHeader
+                                        column="town_hall"
+                                        label="CV"
+                                        filters={filterForm}
+                                        onSort={sortMembers}
+                                    />
+                                    <SortableHeader
+                                        column="role"
+                                        label="Cargo"
+                                        filters={filterForm}
+                                        onSort={sortMembers}
+                                    />
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {members.map((member) => (
+                                {members.data.map((member) => (
                                     <tr key={member.id}>
                                         <td>
                                             <strong>{member.name}</strong>
                                             <small>{member.player_tag}</small>
+                                        </td>
+                                        <td>
+                                            <span className="town-hall-level">
+                                                {member.town_hall_level
+                                                    ? member.town_hall_level
+                                                    : '—'}
+                                            </span>
                                         </td>
                                         <td>{roleLabels[member.role] ?? member.role ?? '—'}</td>
                                         <td>
@@ -140,8 +265,39 @@ export default function Index({ members, clan }) {
                         </table>
                     </div>
                 )}
+                <Pagination pagination={members} />
             </section>
         </AuthenticatedLayout>
+    );
+}
+
+function SortableHeader({ column, label, filters, onSort }) {
+    const active = filters.sort === column;
+
+    return (
+        <th
+            aria-sort={
+                active
+                    ? filters.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                    : 'none'
+            }
+        >
+            <button
+                className={`sortable-column ${active ? 'is-active' : ''}`}
+                onClick={() => onSort(column)}
+            >
+                {label}
+                <span aria-hidden="true">
+                    {active
+                        ? filters.direction === 'asc'
+                            ? '↑'
+                            : '↓'
+                        : '↕'}
+                </span>
+            </button>
+        </th>
     );
 }
 

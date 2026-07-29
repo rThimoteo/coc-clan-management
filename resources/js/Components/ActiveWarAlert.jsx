@@ -1,3 +1,4 @@
+import LiveWarCountdown from '@/Components/LiveWarCountdown';
 import { Link } from '@inertiajs/react';
 
 export default function ActiveWarAlert({ war }) {
@@ -17,7 +18,7 @@ export default function ActiveWarAlert({ war }) {
             <div className="active-war-copy">
                 <p>GUERRA ATIVA</p>
                 <strong>Batalha em andamento contra {war.opponent_name}</strong>
-                <span>Encerra em {formatDate(war.end_time)}</span>
+                <LiveWarCountdown endTime={war.end_time} compact />
             </div>
             <Link href={destination}>
                 Acompanhar guerra
@@ -25,11 +26,4 @@ export default function ActiveWarAlert({ war }) {
             </Link>
         </aside>
     );
-}
-
-function formatDate(value) {
-    return new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-    }).format(new Date(value));
 }

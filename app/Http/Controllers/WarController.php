@@ -7,23 +7,39 @@ use App\Models\War;
 use App\Services\ClashOfClans\ClashOfClansException;
 use App\Services\Wars\WarSyncService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 
 class WarController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $result = $request->string('result')->toString();
+        $result = in_array($result, ['win', 'lose', 'tie'], true) ? $result : null;
+        $wars = War::query()
+            ->whereNotIn('opponent_tag', ['', '#'])
+            ->when($result, fn ($query, string $value) => $query
+                ->where('result', $value));
+        $allWars = War::query()
+            ->whereNotIn('opponent_tag', ['', '#']);
+
         return Inertia::render('Wars/Index', [
             'activeWar' => War::query()
                 ->active()
                 ->latest('end_time')
                 ->first(),
-            'wars' => War::query()
-                ->whereNotIn('opponent_tag', ['', '#'])
+            'warStats' => [
+                'total' => (clone $allWars)->count(),
+                'victories' => (clone $allWars)->where('result', 'win')->count(),
+                'detailed' => (clone $allWars)->where('has_details', true)->count(),
+            ],
+            'filters' => ['result' => $result],
+            'wars' => $wars
                 ->latest('end_time')
-                ->get(),
+                ->paginate(20)
+                ->withQueryString(),
             'clan' => Clan::query()->first(),
         ]);
     }

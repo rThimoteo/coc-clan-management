@@ -1,4 +1,5 @@
 import InputError from '@/Components/InputError';
+import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
@@ -15,19 +16,30 @@ const memberStatusLabels = {
     out: 'Fora do clã',
 };
 
-export default function Index({ users, roles, members }) {
+export default function Index({
+    users,
+    roles,
+    members,
+    permissions,
+    filters,
+}) {
     const { auth, generatedAccess } = usePage().props;
     const [createOpen, setCreateOpen] = useState(false);
     const [linkingUser, setLinkingUser] = useState(null);
     const [memberSearch, setMemberSearch] = useState('');
     const [codeOpen, setCodeOpen] = useState(Boolean(generatedAccess));
     const [copied, setCopied] = useState(false);
+    const [editingRole, setEditingRole] = useState(null);
+    const [adminConfirmed, setAdminConfirmed] = useState(false);
+    const [deletingUser, setDeletingUser] = useState(null);
+    const [userSearch, setUserSearch] = useState(filters.search ?? '');
 
     const createForm = useForm({
         name: '',
         role_id: roles.find((role) => role.slug === 'leader')?.id ?? roles[0]?.id,
     });
     const linkForm = useForm({ member_ids: [] });
+    const roleForm = useForm({ role_id: null, confirm_admin: false });
     const filteredMembers = members.filter((member) => {
         const search = normalizeSearch(memberSearch);
 
@@ -94,6 +106,61 @@ export default function Index({ users, roles, members }) {
         setCopied(true);
     };
 
+    const openRoleEditor = (user) => {
+        setEditingRole(user);
+        setAdminConfirmed(false);
+        roleForm.setData({
+            role_id: user.role.id,
+            confirm_admin: false,
+        });
+        roleForm.clearErrors();
+    };
+
+    const selectedRole = roles.find(
+        (role) => role.id === Number(roleForm.data.role_id),
+    );
+    const promotingToAdmin =
+        auth.user.role === 'admin' &&
+        selectedRole?.slug === 'admin' &&
+        editingRole?.role.slug !== 'admin';
+    const editableRoles =
+        auth.user.role === 'admin'
+            ? roles
+            : roles.filter((role) =>
+                  ['co_leader', 'member'].includes(role.slug),
+              );
+
+    const saveRole = (event) => {
+        event.preventDefault();
+        roleForm.transform((data) => ({
+            ...data,
+            confirm_admin: promotingToAdmin && adminConfirmed,
+        }));
+        roleForm.patch(route('admin.users.role.update', editingRole.id), {
+            preserveScroll: true,
+            onSuccess: () => setEditingRole(null),
+            onFinish: () => roleForm.transform((data) => data),
+        });
+    };
+
+    const canEditRole = (user) => {
+        if (user.id === auth.user.id) {
+            return false;
+        }
+
+        return (
+            (auth.user.role === 'admin' && user.role.slug !== 'admin') ||
+            ['co_leader', 'member'].includes(user.role.slug)
+        );
+    };
+
+    const deleteUser = () => {
+        router.delete(route('admin.users.destroy', deletingUser.id), {
+            preserveScroll: true,
+            onSuccess: () => setDeletingUser(null),
+        });
+    };
+
     return (
         <AuthenticatedLayout header="Usuários" eyebrow="ADMINISTRAÇÃO DE ACESSOS">
             <Head title="Usuários" />
@@ -101,7 +168,7 @@ export default function Index({ users, roles, members }) {
             <section className="admin-users-summary">
                 <div>
                     <span>Acessos cadastrados</span>
-                    <strong>{users.length}</strong>
+                    <strong>{users.total}</strong>
                 </div>
                 <div>
                     <span>Contas do jogo vinculadas</span>
@@ -109,10 +176,12 @@ export default function Index({ users, roles, members }) {
                         {members.filter((member) => member.user_id).length}
                     </strong>
                 </div>
-                <button onClick={() => setCreateOpen(true)}>
-                    <PlusIcon />
-                    Criar novo usuário
-                </button>
+                {permissions.createUsers && (
+                    <button onClick={() => setCreateOpen(true)}>
+                        <PlusIcon />
+                        Criar novo usuário
+                    </button>
+                )}
             </section>
 
             <section className="members-panel admin-users-panel">
@@ -127,6 +196,40 @@ export default function Index({ users, roles, members }) {
                     </div>
                 </header>
 
+                <div className="table-toolbar">
+                <form
+                    className="table-search"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        router.get(
+                            route('admin.users.index'),
+                            { search: userSearch },
+                            { preserveScroll: true },
+                        );
+                    }}
+                >
+                        <input
+                            type="search"
+                            value={userSearch}
+                            placeholder="Nome do usuário"
+                            onChange={(event) => setUserSearch(event.target.value)}
+                        />
+                        <button
+                            type="button"
+                            onClick={() =>
+                                router.get(
+                                    route('admin.users.index'),
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Limpar
+                        </button>
+                        <button>Buscar</button>
+                </form>
+                </div>
+
                 <div className="members-table-wrap">
                     <table className="members-table admin-users-table">
                         <thead>
@@ -138,16 +241,22 @@ export default function Index({ users, roles, members }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((user) => (
+                            {users.data.map((user) => (
                                 <tr key={user.id}>
                                     <td>
                                         <strong>{user.name}</strong>
-                                        <small>Acesso #{user.id}</small>
                                     </td>
                                     <td>
-                                        <span className={`user-role is-${user.role.slug}`}>
-                                            {roleLabels[user.role.slug] ?? user.role.name}
-                                        </span>
+                                        <div className="user-role-control">
+                                            <span className={`user-role is-${user.role.slug}`}>
+                                                {roleLabels[user.role.slug] ?? user.role.name}
+                                            </span>
+                                            {canEditRole(user) && (
+                                                <button onClick={() => openRoleEditor(user)}>
+                                                    Alterar papel
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         {user.members.length ? (
@@ -167,17 +276,30 @@ export default function Index({ users, roles, members }) {
                                     </td>
                                     <td>
                                         <div className="admin-user-actions">
-                                            <button onClick={() => openMemberLink(user)}>
-                                                Vincular membros
-                                            </button>
-                                            {user.id !== auth.user.id && (
-                                                <button
-                                                    className="is-warning"
-                                                    onClick={() => regenerate(user)}
-                                                >
-                                                    Gerar código de acesso
+                                            {permissions.linkMembers && (
+                                                <button onClick={() => openMemberLink(user)}>
+                                                    Vincular membros
                                                 </button>
                                             )}
+                                            {permissions.generateCodes &&
+                                                user.id !== auth.user.id && (
+                                                    <button
+                                                        className="is-warning"
+                                                        onClick={() => regenerate(user)}
+                                                    >
+                                                        Gerar código de acesso
+                                                    </button>
+                                                )}
+                                            {permissions.deleteUsers &&
+                                                user.id !== auth.user.id &&
+                                                user.role.slug !== 'admin' && (
+                                                    <button
+                                                        className="is-danger"
+                                                        onClick={() => setDeletingUser(user)}
+                                                    >
+                                                        Excluir conta
+                                                    </button>
+                                                )}
                                         </div>
                                     </td>
                                 </tr>
@@ -185,6 +307,7 @@ export default function Index({ users, roles, members }) {
                         </tbody>
                     </table>
                 </div>
+                <Pagination pagination={users} />
             </section>
 
             {createOpen && (
@@ -229,6 +352,108 @@ export default function Index({ users, roles, members }) {
                             </button>
                         </div>
                     </form>
+                </Modal>
+            )}
+
+            {editingRole && (
+                <Modal
+                    title={`Alterar papel de ${editingRole.name}`}
+                    onClose={() => setEditingRole(null)}
+                    important={promotingToAdmin}
+                >
+                    <form onSubmit={saveRole} className="profile-form admin-user-form">
+                        <div>
+                            <label htmlFor="edit-user-role">Novo papel</label>
+                            <select
+                                id="edit-user-role"
+                                value={roleForm.data.role_id}
+                                onChange={(event) => {
+                                    roleForm.setData(
+                                        'role_id',
+                                        Number(event.target.value),
+                                    );
+                                    setAdminConfirmed(false);
+                                }}
+                                autoFocus
+                            >
+                                {editableRoles.map((role) => (
+                                    <option key={role.id} value={role.id}>
+                                        {roleLabels[role.slug] ?? role.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError
+                                message={roleForm.errors.role_id}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        {promotingToAdmin && (
+                            <label className="admin-promotion-check">
+                                <input
+                                    type="checkbox"
+                                    checked={adminConfirmed}
+                                    onChange={(event) =>
+                                        setAdminConfirmed(event.target.checked)
+                                    }
+                                />
+                                <span>
+                                    <strong>Confirmar acesso administrativo</strong>
+                                    <small>
+                                        Este usuário poderá gerenciar acessos,
+                                        configurações e outros administradores.
+                                    </small>
+                                </span>
+                            </label>
+                        )}
+
+                        <div className="modal-form-actions">
+                            <button type="button" onClick={() => setEditingRole(null)}>
+                                Cancelar
+                            </button>
+                            <button
+                                className="is-primary"
+                                disabled={
+                                    roleForm.processing ||
+                                    (promotingToAdmin && !adminConfirmed)
+                                }
+                            >
+                                {roleForm.processing ? 'Salvando...' : 'Salvar papel'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {deletingUser && (
+                <Modal
+                    title={`Excluir conta de ${deletingUser.name}?`}
+                    onClose={() => setDeletingUser(null)}
+                    important
+                >
+                    <div className="delete-user-confirmation">
+                        <p>
+                            Esta ação remove permanentemente o acesso ao Clan Hub.
+                            As contas do jogo vinculadas serão preservadas e ficarão
+                            disponíveis para um novo vínculo.
+                        </p>
+                        <div className="delete-user-impact">
+                            <strong>{deletingUser.members.length}</strong>
+                            <span>
+                                {deletingUser.members.length === 1
+                                    ? 'conta vinculada será liberada'
+                                    : 'contas vinculadas serão liberadas'}
+                            </span>
+                        </div>
+                        <div className="modal-form-actions">
+                            <button type="button" onClick={() => setDeletingUser(null)}>
+                                Cancelar
+                            </button>
+                            <button className="is-danger" onClick={deleteUser}>
+                                Excluir permanentemente
+                            </button>
+                        </div>
+                    </div>
                 </Modal>
             )}
 

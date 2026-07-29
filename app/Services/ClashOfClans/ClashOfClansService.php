@@ -108,8 +108,8 @@ class ClashOfClansService
 
         if ($this->isDemoMode()) {
             return [
-                new ClanMember('#PQLG2', 'Chefe de Demonstração', 'leader'),
-                new ClanMember('#QGRJ9', 'Guerreiro de Demonstração', 'member'),
+                new ClanMember('#PQLG2', 'Chefe de Demonstração', 'leader', 16),
+                new ClanMember('#QGRJ9', 'Guerreiro de Demonstração', 'member', 15),
             ];
         }
 
@@ -121,6 +121,7 @@ class ClashOfClansService
                 tag: $this->normalizeTag((string) data_get($member, 'tag')),
                 name: (string) data_get($member, 'name'),
                 role: data_get($member, 'role'),
+                townHallLevel: data_get($member, 'townHallLevel'),
             ))
             ->values()
             ->all();

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'player_tag',
     'name',
     'role',
+    'town_hall_level',
 ])]
 class Member extends Model
 {

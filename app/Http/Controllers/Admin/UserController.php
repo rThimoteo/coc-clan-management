@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\Role;
@@ -16,16 +17,22 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $actor = request()->user();
+        $search = trim($request->string('search')->toString());
+
         return Inertia::render('Admin/Users/Index', [
             'users' => User::query()
                 ->with([
                     'role:id,name,slug',
                     'members:id,user_id,name,player_tag',
                 ])
+                ->when($search, fn ($query, string $value) => $query
+                    ->where('name', 'like', "%{$value}%"))
                 ->orderBy('name')
-                ->get(),
+                ->paginate(20)
+                ->withQueryString(),
             'roles' => Role::query()
                 ->orderBy('name')
                 ->get(['id', 'name', 'slug']),
@@ -36,6 +43,13 @@ class UserController extends Controller
                 ])
                 ->orderBy('name')
                 ->get(['id', 'user_id', 'member_status_id', 'name', 'player_tag']),
+            'permissions' => [
+                'createUsers' => $actor->isAdmin(),
+                'deleteUsers' => $actor->isAdmin(),
+                'generateCodes' => $actor->isAdmin(),
+                'linkMembers' => $actor->canManageUserRoles(),
+            ],
+            'filters' => ['search' => $search],
         ]);
     }
 
@@ -73,6 +87,57 @@ class UserController extends Controller
                 'code' => $accessCode,
                 'action' => 'regenerated',
             ]);
+    }
+
+    public function updateRole(Request $request, User $user): RedirectResponse
+    {
+        $actor = $request->user();
+
+        abort_if($actor->is($user), 403);
+        abort_if($user->isAdmin(), 403);
+
+        $validated = $request->validate([
+            'role_id' => ['required', 'integer', Rule::exists(Role::class, 'id')],
+            'confirm_admin' => ['nullable', 'boolean'],
+        ]);
+        $role = Role::query()->findOrFail($validated['role_id']);
+
+        if ($actor->isAdmin()) {
+            if (
+                $role->slug === UserRole::Admin->value
+                && $user->role->slug !== UserRole::Admin->value
+                && ($validated['confirm_admin'] ?? false) !== true
+            ) {
+                return back()->withErrors([
+                    'role_id' => 'Confirme explicitamente a promoção para administrador.',
+                ]);
+            }
+        } else {
+            $leaderManagedRoles = [
+                UserRole::CoLeader->value,
+                UserRole::Member->value,
+            ];
+
+            abort_unless(
+                in_array($user->role->slug, $leaderManagedRoles, true)
+                && in_array($role->slug, $leaderManagedRoles, true),
+                403,
+            );
+        }
+
+        $user->update(['role_id' => $role->id]);
+
+        return back()->with('status', 'user-role-updated');
+    }
+
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        abort_if($request->user()->is($user), 403);
+        abort_if($user->isAdmin(), 403);
+
+        $user->delete();
+
+        return back()->with('status', 'user-deleted');
     }
 
     public function updateMembers(Request $request, User $user): RedirectResponse

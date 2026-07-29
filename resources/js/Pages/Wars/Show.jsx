@@ -1,8 +1,11 @@
+import LiveWarCountdown from '@/Components/LiveWarCountdown';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
 export default function Show({ war, clan, isActive }) {
+    const { auth, errors, status, syncSummary } = usePage().props;
+    const { post, processing } = useForm({});
     const [defenseMember, setDefenseMember] = useState(null);
     const clanMembers = war.members.filter((member) => member.side === 'clan');
     const opponentMembers = war.members.filter((member) => member.side === 'opponent');
@@ -27,6 +30,10 @@ export default function Show({ war, clan, isActive }) {
             .filter((attack) => attack.defender_tag === tag)
             .sort((a, b) => a.attack_order - b.attack_order);
 
+    const sync = () => {
+        post(route('wars.sync'), { preserveScroll: true });
+    };
+
     return (
         <AuthenticatedLayout
             header={`Guerra contra ${war.opponent_name}`}
@@ -34,9 +41,41 @@ export default function Show({ war, clan, isActive }) {
         >
             <Head title={`Guerra contra ${war.opponent_name}`} />
 
-            <Link href={route('wars.index')} className="war-back-link">
-                ← Voltar para guerras
-            </Link>
+            <div className="war-details-toolbar">
+                <Link href={route('wars.index')} className="war-back-link">
+                    ← Voltar para guerras
+                </Link>
+
+                {['admin', 'leader'].includes(auth.user.role) && (
+                    <button
+                        className={`war-refresh-button ${isActive ? 'is-live' : ''}`}
+                        onClick={sync}
+                        disabled={processing || !clan}
+                    >
+                        <SyncIcon spinning={processing} />
+                        {processing ? 'Atualizando...' : 'Atualizar guerra'}
+                    </button>
+                )}
+            </div>
+
+            {(status === 'wars-synced' || errors.sync) && (
+                <div
+                    className={`sync-feedback war-details-feedback ${errors.sync ? 'is-error' : 'is-success'}`}
+                    role="status"
+                >
+                    {errors.sync ? (
+                        errors.sync
+                    ) : (
+                        <>
+                            Guerra atualizada.
+                            <span>
+                                {syncSummary?.updated ?? 0} registros atualizados ·{' '}
+                                {syncSummary?.detailed ?? 0} com detalhes
+                            </span>
+                        </>
+                    )}
+                </div>
+            )}
 
             <section className="war-scoreboard">
                 <ClanScore
@@ -48,10 +87,13 @@ export default function Show({ war, clan, isActive }) {
                 />
                 <div className="war-scoreboard-center">
                     {isActive && (
-                        <div className="war-live-badge" role="status">
-                            <span aria-hidden="true" />
-                            AO VIVO
-                        </div>
+                        <>
+                            <div className="war-live-badge" role="status">
+                                <span aria-hidden="true" />
+                                AO VIVO
+                            </div>
+                            <LiveWarCountdown endTime={war.end_time} />
+                        </>
                     )}
                     <span>{war.team_size} × {war.team_size}</span>
                     <strong>{war.clan_stars} <i>×</i> {war.opponent_stars}</strong>
@@ -236,4 +278,12 @@ function resultLabel(result) {
 
 function formatPercentage(value) {
     return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value)}%`;
+}
+
+function SyncIcon({ spinning }) {
+    return (
+        <svg className={spinning ? 'is-spinning' : ''} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 7h-5V2M4 17h5v5M19 12a7 7 0 0 0-12-5L5 9M5 12a7 7 0 0 0 12 5l2-2" />
+        </svg>
+    );
 }

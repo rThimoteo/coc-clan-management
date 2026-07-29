@@ -59,14 +59,21 @@ class MemberSyncService
                         'player_tag' => $clanMember->tag,
                         'name' => $clanMember->name,
                         'role' => $clanMember->role,
+                        'town_hall_level' => $clanMember->townHallLevel,
                     ]);
                     $added++;
 
                     continue;
                 }
 
-                if ($member->member_status_id !== $inStatus->id) {
-                    $member->update(['member_status_id' => $inStatus->id]);
+                $wasOut = $member->member_status_id !== $inStatus->id;
+                $member->update([
+                    'member_status_id' => $inStatus->id,
+                    'role' => $clanMember->role,
+                    'town_hall_level' => $clanMember->townHallLevel,
+                ]);
+
+                if ($wasOut) {
                     $movedIn++;
                 }
             }

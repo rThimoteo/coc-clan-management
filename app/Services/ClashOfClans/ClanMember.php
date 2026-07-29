@@ -8,5 +8,6 @@ readonly class ClanMember
         public string $tag,
         public string $name,
         public ?string $role,
+        public ?int $townHallLevel,
     ) {}
 }
