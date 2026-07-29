@@ -36,10 +36,12 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
 
             <aside className={`app-sidebar ${sidebarOpen ? 'is-open' : ''}`}>
                 <Link href={route('dashboard')} className="app-brand">
-                    <span className="app-brand-mark">CM</span>
+                    <span className="app-brand-logo">
+                        <img src="/images/clan_hub.png" alt="" />
+                    </span>
                     <span>
-                        <strong>Clan Manager</strong>
-                        <small>WAR OPERATIONS</small>
+                        <strong>Clan Hub</strong>
+                        <small>CENTRAL DO CLÃ</small>
                     </span>
                 </Link>
 
@@ -116,7 +118,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                     </button>
 
                     <div className="app-topbar-context">
-                        <span>CLAN MANAGEMENT</span>
+                        <span>CLAN HUB</span>
                         <i />
                         <strong>{header}</strong>
                     </div>
