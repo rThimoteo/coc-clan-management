@@ -16,7 +16,7 @@ const memberStatusLabels = {
 };
 
 export default function Index({ users, roles, members }) {
-    const { generatedAccess } = usePage().props;
+    const { auth, generatedAccess } = usePage().props;
     const [createOpen, setCreateOpen] = useState(false);
     const [linkingUser, setLinkingUser] = useState(null);
     const [memberSearch, setMemberSearch] = useState('');
@@ -170,12 +170,14 @@ export default function Index({ users, roles, members }) {
                                             <button onClick={() => openMemberLink(user)}>
                                                 Vincular membros
                                             </button>
-                                            <button
-                                                className="is-warning"
-                                                onClick={() => regenerate(user)}
-                                            >
-                                                Gerar código de acesso
-                                            </button>
+                                            {user.id !== auth.user.id && (
+                                                <button
+                                                    className="is-warning"
+                                                    onClick={() => regenerate(user)}
+                                                >
+                                                    Gerar código de acesso
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
