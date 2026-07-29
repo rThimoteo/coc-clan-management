@@ -90,5 +90,6 @@ jobs:
               php artisan optimize:clear
               php artisan optimize
 
-              chmod -R 775 storage bootstrap/cache
+              find storage bootstrap/cache -type d -exec chmod 775 {} \;
+              find storage bootstrap/cache -type f -exec chmod 664 {} \;
           REMOTE
