@@ -6,7 +6,7 @@ services:
         WWWGROUP: ${GID:-1000}
         WWWUSER: ${UID:-1000}
       dockerfile: docker/php-fpm/Dockerfile
-    container_name: coc-clan-management-php-fpm
+    container_name: clan-hub-php-fpm
     working_dir: /var/www/html
     user: "www-data:www-data"
     volumes:
@@ -14,11 +14,11 @@ services:
     depends_on:
       - redis
     networks:
-      - coc-clan-management
+      - clan-hub
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: coc-clan-management-nginx
+    container_name: clan-hub-nginx
     ports:
       - "8081:80"
     volumes:
@@ -27,19 +27,19 @@ services:
     depends_on:
       - php-fpm
     networks:
-      - coc-clan-management
+      - clan-hub
 
   redis:
     image: redis:7.4-alpine
-    container_name: coc-clan-management-redis
+    container_name: clan-hub-redis
     ports:
       - "6379:6379"
     networks:
-      - coc-clan-management
+      - clan-hub
 
   node:
     image: node:22-alpine
-    container_name: coc-clan-management-node
+    container_name: clan-hub-node
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
@@ -47,8 +47,8 @@ services:
       - "5175:5175"
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     networks:
-      - coc-clan-management
+      - clan-hub
 
 networks:
-  coc-clan-management:
+  clan-hub:
     driver: bridge

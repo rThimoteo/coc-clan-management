@@ -5,7 +5,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Clan Management';
+const appName = import.meta.env.VITE_APP_NAME || 'Clan Hub';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

@@ -52,17 +52,19 @@
         linear-gradient(145deg, rgba(28, 25, 23, 0.3), transparent);
 }
 
-.auth-emblem {
-    display: grid;
-    height: 3.5rem;
-    width: 3.5rem;
-    place-items: center;
-    border: 1px solid rgba(251, 191, 36, 0.55);
-    border-radius: 1rem 0.25rem 1rem 0.25rem;
-    color: #fbbf24;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.08em;
+.auth-logo {
+    height: 7.5rem;
+    width: 13rem;
+    overflow: hidden;
+    border-radius: 0.9rem;
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.3);
+}
+
+.auth-logo img {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    object-position: center 48%;
 }
 
 .auth-eyebrow {
@@ -231,18 +233,20 @@
     padding: 0.35rem 0.5rem 1.75rem;
 }
 
-.app-brand-mark {
-    display: grid;
-    height: 2.7rem;
-    width: 2.7rem;
+.app-brand-logo {
+    height: 2.8rem;
+    width: 4.8rem;
     flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid rgba(251, 191, 36, 0.5);
-    border-radius: 0.8rem 0.2rem 0.8rem 0.2rem;
-    color: #fbbf24;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.08em;
+    overflow: hidden;
+    border-radius: 0.55rem;
+    box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.25);
+}
+
+.app-brand-logo img {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    object-position: center 48%;
 }
 
 .app-brand strong,

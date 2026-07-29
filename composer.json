@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "rthimoteo/clan-hub",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Central de gerenciamento de clãs de Clash of Clans.",
+    "keywords": ["laravel", "clash-of-clans", "clan-management"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

@@ -1,4 +1,4 @@
-# Clash of Clans Clan Management
+# Clan Hub
 
 Sistema web para gerenciamento de clãs de Clash of Clans.
 
