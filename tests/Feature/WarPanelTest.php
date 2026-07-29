@@ -86,6 +86,74 @@ class WarPanelTest extends TestCase
                 ->has('war.attacks', 4));
     }
 
+    public function test_active_war_is_highlighted_on_dashboard_and_war_list(): void
+    {
+        $activeWar = War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'active-war'),
+            'end_time' => now()->addHour(),
+            'opponent_name' => 'Rival ativo',
+        ]);
+        War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'finished-war'),
+            'end_time' => now()->subMinute(),
+            'opponent_name' => 'Rival encerrado',
+        ]);
+        $user = User::factory()->create();
+
+        foreach (['/dashboard', '/wars'] as $url) {
+            $this->actingAs($user)
+                ->get($url)
+                ->assertOk()
+                ->assertInertia(fn (AssertableInertia $page) => $page
+                    ->where('activeWar.id', $activeWar->id)
+                    ->where('activeWar.opponent_name', 'Rival ativo'));
+        }
+    }
+
+    public function test_finished_war_is_not_marked_as_active(): void
+    {
+        War::query()->create([
+            ...$this->summaryAttributes(),
+            'end_time' => now()->subSecond(),
+        ]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('activeWar', null));
+    }
+
+    public function test_war_details_identify_when_battle_is_active(): void
+    {
+        $activeWar = War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'active-war-details'),
+            'end_time' => now()->addHour(),
+            'has_details' => true,
+        ]);
+        $finishedWar = War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'finished-war-details'),
+            'end_time' => now()->subHour(),
+            'has_details' => true,
+        ]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get("/wars/{$activeWar->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('isActive', true));
+
+        $this->actingAs($user)
+            ->get("/wars/{$finishedWar->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('isActive', false));
+    }
+
     public function test_war_without_details_does_not_expose_details_page(): void
     {
         $war = War::query()->create($this->summaryAttributes());

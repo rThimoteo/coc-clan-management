@@ -1,3 +1,4 @@
+import ActiveWarAlert from '@/Components/ActiveWarAlert';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
 
@@ -7,13 +8,15 @@ const metrics = [
     { label: 'Taxa de vitória', value: '—', note: 'Histórico ainda vazio' },
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ activeWar }) {
     return (
         <AuthenticatedLayout
             header="Visão geral"
             eyebrow="PAINEL DE COMANDO"
         >
             <Head title="Visão geral" />
+
+            <ActiveWarAlert war={activeWar} />
 
             <section className="dashboard-grid">
                 {metrics.map((metric, index) => (

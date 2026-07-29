@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
-export default function Show({ war, clan }) {
+export default function Show({ war, clan, isActive }) {
     const [defenseMember, setDefenseMember] = useState(null);
     const clanMembers = war.members.filter((member) => member.side === 'clan');
     const opponentMembers = war.members.filter((member) => member.side === 'opponent');
@@ -47,6 +47,12 @@ export default function Show({ war, clan }) {
                     destruction={war.clan_destruction_percentage}
                 />
                 <div className="war-scoreboard-center">
+                    {isActive && (
+                        <div className="war-live-badge" role="status">
+                            <span aria-hidden="true" />
+                            AO VIVO
+                        </div>
+                    )}
                     <span>{war.team_size} × {war.team_size}</span>
                     <strong>{war.clan_stars} <i>×</i> {war.opponent_stars}</strong>
                     <small>{resultLabel(war.result)}</small>

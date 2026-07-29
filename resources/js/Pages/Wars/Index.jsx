@@ -1,3 +1,4 @@
+import ActiveWarAlert from '@/Components/ActiveWarAlert';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 
@@ -7,7 +8,7 @@ const resultLabels = {
     tie: 'Empate',
 };
 
-export default function Index({ wars, clan }) {
+export default function Index({ wars, clan, activeWar }) {
     const { auth, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const victories = wars.filter((war) => war.result === 'win').length;
@@ -20,6 +21,8 @@ export default function Index({ wars, clan }) {
     return (
         <AuthenticatedLayout header="Guerras" eyebrow="HISTÓRICO DE BATALHAS">
             <Head title="Guerras" />
+
+            <ActiveWarAlert war={activeWar} />
 
             <section className="members-summary war-summary">
                 <div>

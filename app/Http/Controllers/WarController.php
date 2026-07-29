@@ -16,6 +16,10 @@ class WarController extends Controller
     public function index(): Response
     {
         return Inertia::render('Wars/Index', [
+            'activeWar' => War::query()
+                ->active()
+                ->latest('end_time')
+                ->first(),
             'wars' => War::query()
                 ->whereNotIn('opponent_tag', ['', '#'])
                 ->latest('end_time')
@@ -30,6 +34,7 @@ class WarController extends Controller
 
         return Inertia::render('Wars/Show', [
             'clan' => Clan::query()->first(),
+            'isActive' => $war->end_time->isFuture(),
             'war' => $war->load([
                 'members' => fn ($query) => $query->orderBy('map_position'),
                 'attacks' => fn ($query) => $query->orderBy('attack_order'),

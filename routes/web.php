@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WarController;
+use App\Models\War;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -13,7 +14,12 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    return Inertia::render('Dashboard', [
+        'activeWar' => War::query()
+            ->active()
+            ->latest('end_time')
+            ->first(),
+    ]);
 })->middleware('auth')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
