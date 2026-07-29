@@ -14,11 +14,12 @@ RUN apk add --no-cache \
     icu-dev \
     libzip-dev \
     oniguruma-dev \
-    mysql-client \
+    sqlite \
+    sqlite-dev \
     shadow
 
 RUN docker-php-ext-install \
-    pdo_mysql \
+    pdo_sqlite \
     mbstring \
     intl \
     zip \

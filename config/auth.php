@@ -124,6 +124,7 @@ return [
     |
     */
 
+    'admin_access_name' => env('ADMIN_ACCESS_NAME'),
     'admin_access_code' => env('ADMIN_ACCESS_CODE'),
 
 ];

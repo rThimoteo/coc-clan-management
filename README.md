@@ -11,7 +11,7 @@ cada pessoa autorizada entra usando somente seu código de acesso.
 - React 18
 - Inertia.js
 - Tailwind CSS
-- MySQL 8.4
+- SQLite
 - Vite
 - Docker Compose
 
@@ -63,6 +63,13 @@ Crie o arquivo de ambiente:
 
 ```bash
 cp .env.example .env
+```
+
+O banco local fica em `database/database.sqlite`. Crie o arquivo caso ele ainda
+não exista:
+
+```bash
+touch database/database.sqlite
 ```
 
 Antes de iniciar, substitua o código administrativo de exemplo por um valor
@@ -181,7 +188,7 @@ Cache usa arquivos locais e filas são executadas de forma síncrona nesta fase.
 ### Base do projeto
 
 - [x] Configurar Laravel, React e Inertia.js.
-- [x] Configurar ambiente Docker com Nginx, PHP, MySQL e Node.
+- [x] Configurar ambiente Docker com Nginx, PHP, SQLite e Node.
 - [x] Criar migration inicial sem tabelas especulativas.
 - [x] Adicionar testes automatizados para autenticação e regras de acesso.
 
