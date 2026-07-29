@@ -46,7 +46,14 @@ class User extends Authenticatable
         return in_array($this->role?->slug, [
             UserRole::Admin->value,
             UserRole::Leader->value,
-            UserRole::CoLeader->value,
+        ], true);
+    }
+
+    public function canManageUserRoles(): bool
+    {
+        return in_array($this->role?->slug, [
+            UserRole::Admin->value,
+            UserRole::Leader->value,
         ], true);
     }
 

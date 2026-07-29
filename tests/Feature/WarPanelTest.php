@@ -74,8 +74,9 @@ class WarPanelTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Wars/Index')
-                ->has('wars', 1)
-                ->where('wars.0.has_details', true));
+                ->has('wars.data', 1)
+                ->where('wars.data.0.has_details', true)
+                ->where('warStats.total', 1));
 
         $this->actingAs($user)
             ->get("/wars/{$war->id}")
@@ -84,6 +85,20 @@ class WarPanelTest extends TestCase
                 ->component('Wars/Show')
                 ->has('war.members', 4)
                 ->has('war.attacks', 4));
+    }
+
+    public function test_war_sync_started_from_details_returns_to_the_same_page(): void
+    {
+        $this->fakeWarApi();
+        Clan::query()->create(['tag' => '#QGRJ2']);
+        $user = User::factory()->create();
+        $this->actingAs($user)->post('/wars/sync');
+        $war = War::query()->sole();
+
+        $this->actingAs($user)
+            ->from("/wars/{$war->id}")
+            ->post('/wars/sync')
+            ->assertRedirect("/wars/{$war->id}");
     }
 
     public function test_active_war_is_highlighted_on_dashboard_and_war_list(): void
@@ -110,6 +125,59 @@ class WarPanelTest extends TestCase
                     ->where('activeWar.id', $activeWar->id)
                     ->where('activeWar.opponent_name', 'Rival ativo'));
         }
+    }
+
+    public function test_war_history_is_paginated_twenty_at_a_time(): void
+    {
+        foreach (range(1, 25) as $index) {
+            War::query()->create([
+                ...$this->summaryAttributes(),
+                'external_key' => hash('sha256', "paginated-war-{$index}"),
+                'end_time' => now()->subDays($index),
+                'opponent_tag' => "#RIVAL{$index}",
+            ]);
+        }
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/wars')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('wars.data', 20)
+                ->where('wars.current_page', 1)
+                ->where('wars.total', 25)
+                ->where('warStats.total', 25));
+
+        $this->actingAs($user)
+            ->get('/wars?page=2')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('wars.data', 5)
+                ->where('wars.current_page', 2)
+                ->where('wars.total', 25));
+    }
+
+    public function test_wars_can_be_filtered_by_result_and_remain_ordered_by_end_time(): void
+    {
+        foreach ([
+            ['win', now()->subDays(3), 'Vitória antiga'],
+            ['lose', now()->subDays(2), 'Derrota'],
+            ['win', now()->subDay(), 'Vitória recente'],
+        ] as $index => [$result, $endTime, $opponent]) {
+            War::query()->create([
+                ...$this->summaryAttributes(),
+                'external_key' => hash('sha256', "filtered-war-{$index}"),
+                'result' => $result,
+                'end_time' => $endTime,
+                'opponent_name' => $opponent,
+            ]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->get('/wars?result=win')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('wars.data', 2)
+                ->where('filters.result', 'win')
+                ->where('wars.data.0.opponent_name', 'Vitória recente')
+                ->where('wars.data.1.opponent_name', 'Vitória antiga'));
     }
 
     public function test_finished_war_is_not_marked_as_active(): void
@@ -228,15 +296,17 @@ class WarPanelTest extends TestCase
         $this->post('/wars/sync')->assertRedirect(route('login'));
     }
 
-    public function test_member_user_can_view_but_can_not_sync_wars(): void
+    public function test_member_and_coleader_can_view_but_can_not_sync_wars(): void
     {
-        $memberRole = Role::query()
-            ->where('slug', UserRole::Member->value)
-            ->sole();
-        $user = User::factory()->create(['role_id' => $memberRole->id]);
+        foreach ([UserRole::Member, UserRole::CoLeader] as $userRole) {
+            $role = Role::query()
+                ->where('slug', $userRole->value)
+                ->sole();
+            $user = User::factory()->create(['role_id' => $role->id]);
 
-        $this->actingAs($user)->get('/wars')->assertOk();
-        $this->actingAs($user)->post('/wars/sync')->assertForbidden();
+            $this->actingAs($user)->get('/wars')->assertOk();
+            $this->actingAs($user)->post('/wars/sync')->assertForbidden();
+        }
     }
 
     private function fakeWarApi(): void

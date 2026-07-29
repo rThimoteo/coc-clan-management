@@ -1,6 +1,9 @@
 import ActiveWarAlert from '@/Components/ActiveWarAlert';
+import FilterPopover from '@/Components/FilterPopover';
+import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 const resultLabels = {
     win: 'Vitória',
@@ -8,14 +11,22 @@ const resultLabels = {
     tie: 'Empate',
 };
 
-export default function Index({ wars, clan, activeWar }) {
+export default function Index({ wars, clan, activeWar, warStats, filters }) {
     const { auth, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
-    const victories = wars.filter((war) => war.result === 'win').length;
-    const detailed = wars.filter((war) => war.has_details).length;
+    const [resultFilter, setResultFilter] = useState(filters.result ?? '');
 
     const sync = () => {
         post(route('wars.sync'), { preserveScroll: true });
+    };
+
+    const applyFilters = (event) => {
+        event.preventDefault();
+        router.get(
+            route('wars.index'),
+            { result: resultFilter },
+            { preserveScroll: true },
+        );
     };
 
     return (
@@ -27,15 +38,15 @@ export default function Index({ wars, clan, activeWar }) {
             <section className="members-summary war-summary">
                 <div>
                     <span>Guerras registradas</span>
-                    <strong>{wars.length}</strong>
+                    <strong>{warStats.total}</strong>
                 </div>
                 <div>
                     <span>Vitórias</span>
-                    <strong>{victories}</strong>
+                    <strong>{warStats.victories}</strong>
                 </div>
                 <div>
                     <span>Com detalhes</span>
-                    <strong>{detailed}</strong>
+                    <strong>{warStats.detailed}</strong>
                 </div>
                 <div className="members-sync-meta">
                     <span>Última sincronização</span>
@@ -98,7 +109,32 @@ export default function Index({ wars, clan, activeWar }) {
                     </div>
                 )}
 
-                {wars.length === 0 ? (
+                <div className="table-toolbar is-filter-only">
+                    <FilterPopover activeCount={resultFilter ? 1 : 0}>
+                        <form className="popover-filter-form" onSubmit={applyFilters}>
+                            <label>
+                                <span>Resultado</span>
+                                <select
+                                    value={resultFilter}
+                                    onChange={(event) => setResultFilter(event.target.value)}
+                                >
+                                    <option value="">Todos os resultados</option>
+                                    <option value="win">Vitórias</option>
+                                    <option value="lose">Derrotas</option>
+                                    <option value="tie">Empates</option>
+                                </select>
+                            </label>
+                            <div className="filter-actions">
+                                <button type="button" onClick={() => router.get(route('wars.index'), {}, { preserveScroll: true })}>
+                                    Limpar
+                                </button>
+                                <button className="is-primary">Aplicar filtro</button>
+                            </div>
+                        </form>
+                    </FilterPopover>
+                </div>
+
+                {wars.data.length === 0 ? (
                     <div className="members-empty">
                         <div className="members-empty-mark">VS</div>
                         <h3>Nenhuma guerra sincronizada.</h3>
@@ -118,7 +154,7 @@ export default function Index({ wars, clan, activeWar }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {wars.map((war) => (
+                                {wars.data.map((war) => (
                                     <tr key={war.id}>
                                         <td>
                                             <span className={`war-result is-${war.result ?? 'pending'}`}>
@@ -163,6 +199,8 @@ export default function Index({ wars, clan, activeWar }) {
                         </table>
                     </div>
                 )}
+
+                <Pagination pagination={wars} />
             </section>
         </AuthenticatedLayout>
     );

@@ -24,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::define('manage-clan', fn (User $user): bool => $user->isAdmin());
         Gate::define('manage-users', fn (User $user): bool => $user->isAdmin());
+        Gate::define('view-users', fn (User $user): bool => $user->canManageUserRoles());
+        Gate::define('manage-user-roles', fn (User $user): bool => $user->canManageUserRoles());
+        Gate::define('link-user-members', fn (User $user): bool => $user->canManageUserRoles());
         Gate::define('sync-clan-data', fn (User $user): bool => $user->canSyncClanData());
 
         Vite::prefetch(concurrency: 3);

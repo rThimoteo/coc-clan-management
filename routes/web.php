@@ -2,25 +2,19 @@
 
 use App\Http\Controllers\Admin\ClanController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WarController;
-use App\Models\War;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard', [
-        'activeWar' => War::query()
-            ->active()
-            ->latest('end_time')
-            ->first(),
-    ]);
-})->middleware('auth')->name('dashboard');
+Route::get('/dashboard', DashboardController::class)
+    ->middleware('auth')
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -40,11 +34,20 @@ Route::middleware('auth')->group(function () {
         Route::patch('/clan', [ClanController::class, 'update'])->name('clan.update');
     });
 
-    Route::middleware('can:manage-users')->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('can:view-users')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])
+            ->middleware('can:manage-user-roles')
+            ->name('users.role.update');
+        Route::put('/users/{user}/members', [UserController::class, 'updateMembers'])
+            ->middleware('can:link-user-members')
+            ->name('users.members.update');
+    });
+
+    Route::middleware('can:manage-users')->prefix('admin')->name('admin.')->group(function () {
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::post('/users/{user}/access-code', [UserController::class, 'regenerate'])->name('users.access-code.regenerate');
-        Route::put('/users/{user}/members', [UserController::class, 'updateMembers'])->name('users.members.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });
 

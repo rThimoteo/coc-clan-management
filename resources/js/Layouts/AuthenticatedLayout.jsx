@@ -66,7 +66,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                     })}
                 </nav>
 
-                {auth.user.role === 'admin' && (
+                {['admin', 'leader'].includes(auth.user.role) && (
                     <>
                         <div className="app-nav-label app-nav-section">
                             Administração
@@ -83,17 +83,19 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                                     <span className="app-nav-pip" />
                                 )}
                             </Link>
-                            <Link
-                                href={route('admin.clan.edit')}
-                                className={`app-nav-item ${route().current('admin.clan.*') ? 'is-active' : ''}`}
-                                onClick={() => setSidebarOpen(false)}
-                            >
-                                <ShieldIcon />
-                                <span>Configurar clã</span>
-                                {route().current('admin.clan.*') && (
-                                    <span className="app-nav-pip" />
-                                )}
-                            </Link>
+                            {auth.user.role === 'admin' && (
+                                <Link
+                                    href={route('admin.clan.edit')}
+                                    className={`app-nav-item ${route().current('admin.clan.*') ? 'is-active' : ''}`}
+                                    onClick={() => setSidebarOpen(false)}
+                                >
+                                    <ShieldIcon />
+                                    <span>Configurar clã</span>
+                                    {route().current('admin.clan.*') && (
+                                        <span className="app-nav-pip" />
+                                    )}
+                                </Link>
+                            )}
                         </nav>
                     </>
                 )}
