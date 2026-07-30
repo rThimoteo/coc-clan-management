@@ -19,5 +19,9 @@ class DatabaseSeeder extends Seeder
             AdminAccessSeeder::class,
             MemberStatusSeeder::class,
         ]);
+
+        if ((bool) config('services.clash_of_clans.demo_mode')) {
+            $this->call(DemoDataSeeder::class);
+        }
     }
 }

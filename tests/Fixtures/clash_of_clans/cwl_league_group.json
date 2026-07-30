@@ -1,0 +1,64 @@
+{
+    "state": "inWar",
+    "season": "2026-08",
+    "clans": [
+        {
+            "tag": "#2Q8L9Y0JP",
+            "name": "Clã Principal",
+            "clanLevel": 20,
+            "badgeUrls": {
+                "small": "https://assets.example/clan-principal-small.png",
+                "medium": "https://assets.example/clan-principal-medium.png",
+                "large": "https://assets.example/clan-principal-large.png"
+            },
+            "members": [
+                {
+                    "tag": "#P0Y8L2QG",
+                    "name": "Ayla",
+                    "townHallLevel": 17
+                },
+                {
+                    "tag": "#Q2G9R8JV",
+                    "name": "Breno",
+                    "townHallLevel": 17
+                }
+            ]
+        },
+        {
+            "tag": "#9R2V8C0YL",
+            "name": "Clã Rival",
+            "clanLevel": 19,
+            "badgeUrls": {
+                "small": "https://assets.example/clan-rival-small.png",
+                "medium": "https://assets.example/clan-rival-medium.png",
+                "large": "https://assets.example/clan-rival-large.png"
+            },
+            "members": [
+                {
+                    "tag": "#V9Y20QGR",
+                    "name": "Rival Um",
+                    "townHallLevel": 17
+                },
+                {
+                    "tag": "#L2P8J0CU",
+                    "name": "Rival Dois",
+                    "townHallLevel": 16
+                }
+            ]
+        }
+    ],
+    "rounds": [
+        {
+            "warTags": [
+                "#2PP",
+                "#2PQ"
+            ]
+        },
+        {
+            "warTags": [
+                "#2PR",
+                "#0"
+            ]
+        }
+    ]
+}

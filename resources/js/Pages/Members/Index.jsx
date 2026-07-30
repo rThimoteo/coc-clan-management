@@ -1,7 +1,7 @@
 import FilterPopover from '@/Components/FilterPopover';
 import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 const statusLabels = {
@@ -23,7 +23,7 @@ export default function Index({
     filters,
     filterOptions,
 }) {
-    const { auth, errors, status, syncSummary } = usePage().props;
+    const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const [filterForm, setFilterForm] = useState({
         search: filters.search ?? '',
@@ -130,7 +130,8 @@ export default function Index({
                             o histórico de quem deixou o clã.
                         </p>
                     </div>
-                    {['admin', 'leader'].includes(auth.user.role) && (
+                    {!demoMode &&
+                        ['admin', 'leader'].includes(auth.user.role) && (
                         <button
                             className="sync-button"
                             onClick={sync}
@@ -143,6 +144,13 @@ export default function Index({
                         </button>
                     )}
                 </header>
+
+                {demoMode && (
+                    <div className="members-empty-warning">
+                        Modo demo: os dados desta tela são demonstrativos e a
+                        sincronização com o jogo está desativada.
+                    </div>
+                )}
 
                 {!clan && (
                     <div className="members-empty-warning">
@@ -208,8 +216,9 @@ export default function Index({
                         <div className="members-empty-mark">00</div>
                         <h3>Nenhum membro sincronizado.</h3>
                         <p>
-                            Use o botão acima para importar a formação atual do
-                            clã.
+                            {demoMode
+                                ? 'Execute os seeders para carregar os dados de demonstração.'
+                                : 'Use o botão acima para importar a formação atual do clã.'}
                         </p>
                     </div>
                 ) : (
@@ -236,6 +245,7 @@ export default function Index({
                                         onSort={sortMembers}
                                     />
                                     <th>Status</th>
+                                    <th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -258,6 +268,17 @@ export default function Index({
                                                 <i />
                                                 {statusLabels[member.status.slug]}
                                             </span>
+                                        </td>
+                                        <td className="war-action-cell">
+                                            <Link
+                                                className="war-details-link"
+                                                href={route(
+                                                    'members.show',
+                                                    member.id,
+                                                )}
+                                            >
+                                                Ver desempenho
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}

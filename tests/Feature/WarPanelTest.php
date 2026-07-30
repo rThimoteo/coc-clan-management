@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\War;
 use App\Models\WarAttack;
 use App\Models\WarMember;
+use App\Services\Clans\ActiveClanContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
@@ -222,6 +223,27 @@ class WarPanelTest extends TestCase
                 ->where('isActive', false));
     }
 
+    public function test_preparation_is_distinguished_from_a_live_battle(): void
+    {
+        $war = War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'preparation-war'),
+            'state' => 'preparation',
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDays(2),
+            'has_details' => true,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/wars/{$war->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('isActive', true)
+                ->where('isPreparation', true)
+                ->where('war.state', 'preparation')
+                ->where('war.start_time', $war->start_time->toJSON()));
+    }
+
     public function test_war_without_details_does_not_expose_details_page(): void
     {
         $war = War::query()->create($this->summaryAttributes());
@@ -229,6 +251,49 @@ class WarPanelTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get("/wars/{$war->id}")
             ->assertNotFound();
+    }
+
+    public function test_war_pages_are_isolated_by_the_active_clan(): void
+    {
+        $primary = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'is_default' => true,
+        ]);
+        $secondary = Clan::query()->create(['tag' => '#V9Y20']);
+        $primaryWar = War::query()->create([
+            ...$this->summaryAttributes(),
+            'clan_id' => $primary->id,
+            'external_key' => hash('sha256', 'primary-isolated-war'),
+            'opponent_name' => 'Rival principal',
+            'has_details' => true,
+        ]);
+        $secondaryWar = War::query()->create([
+            ...$this->summaryAttributes(),
+            'clan_id' => $secondary->id,
+            'external_key' => hash('sha256', 'secondary-isolated-war'),
+            'opponent_name' => 'Rival secundário',
+            'has_details' => true,
+        ]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
+            ->get('/wars')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('wars.data', 1)
+                ->where('wars.data.0.id', $secondaryWar->id)
+                ->where('warStats.total', 1));
+
+        $this->actingAs($user)
+            ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
+            ->get("/wars/{$primaryWar->id}")
+            ->assertNotFound();
+
+        $this->actingAs($user)
+            ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
+            ->get("/wars/{$secondaryWar->id}")
+            ->assertOk();
     }
 
     public function test_war_sync_requires_a_configured_clan(): void
@@ -421,7 +486,13 @@ class WarPanelTest extends TestCase
      */
     private function summaryAttributes(): array
     {
+        $clan = Clan::query()->firstOrCreate(
+            ['tag' => '#QGRJ2'],
+            ['is_default' => true],
+        );
+
         return [
+            'clan_id' => $clan->id,
             'external_key' => hash('sha256', 'summary'),
             'result' => 'win',
             'team_size' => 15,

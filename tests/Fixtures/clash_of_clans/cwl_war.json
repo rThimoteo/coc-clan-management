@@ -1,0 +1,72 @@
+{
+    "state": "inWar",
+    "teamSize": 15,
+    "attacksPerMember": 1,
+    "preparationStartTime": "20260801T180000.000Z",
+    "startTime": "20260802T180000.000Z",
+    "endTime": "20260803T180000.000Z",
+    "clan": {
+        "tag": "#2Q8L9Y0JP",
+        "name": "Clã Principal",
+        "clanLevel": 20,
+        "attacks": 1,
+        "stars": 3,
+        "destructionPercentage": 100,
+        "badgeUrls": {
+            "small": "https://assets.example/clan-principal-small.png",
+            "medium": "https://assets.example/clan-principal-medium.png",
+            "large": "https://assets.example/clan-principal-large.png"
+        },
+        "members": [
+            {
+                "tag": "#P0Y8L2QG",
+                "name": "Ayla",
+                "townhallLevel": 17,
+                "mapPosition": 1,
+                "opponentAttacks": 1,
+                "attacks": [
+                    {
+                        "attackerTag": "#P0Y8L2QG",
+                        "defenderTag": "#V9Y20QGR",
+                        "stars": 3,
+                        "destructionPercentage": 100,
+                        "order": 1,
+                        "duration": 148
+                    }
+                ]
+            }
+        ]
+    },
+    "opponent": {
+        "tag": "#9R2V8C0YL",
+        "name": "Clã Rival",
+        "clanLevel": 19,
+        "attacks": 1,
+        "stars": 2,
+        "destructionPercentage": 86.4,
+        "badgeUrls": {
+            "small": "https://assets.example/clan-rival-small.png",
+            "medium": "https://assets.example/clan-rival-medium.png",
+            "large": "https://assets.example/clan-rival-large.png"
+        },
+        "members": [
+            {
+                "tag": "#V9Y20QGR",
+                "name": "Rival Um",
+                "townhallLevel": 17,
+                "mapPosition": 1,
+                "opponentAttacks": 1,
+                "attacks": [
+                    {
+                        "attackerTag": "#V9Y20QGR",
+                        "defenderTag": "#P0Y8L2QG",
+                        "stars": 2,
+                        "destructionPercentage": 86.4,
+                        "order": 2,
+                        "duration": 171
+                    }
+                ]
+            }
+        ]
+    }
+}

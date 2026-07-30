@@ -4,6 +4,4 @@ namespace App\Services\ClashOfClans;
 
 use RuntimeException;
 
-class ClashOfClansException extends RuntimeException
-{
-}
+class ClashOfClansException extends RuntimeException {}

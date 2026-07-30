@@ -11,8 +11,13 @@ const resultLabels = {
     tie: 'Empate',
 };
 
+const stateLabels = {
+    preparation: 'Preparação',
+    inWar: 'Em andamento',
+};
+
 export default function Index({ wars, clan, activeWar, warStats, filters }) {
-    const { auth, errors, status, syncSummary } = usePage().props;
+    const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const [resultFilter, setResultFilter] = useState(filters.result ?? '');
 
@@ -88,7 +93,8 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                             que a API os disponibilizar.
                         </p>
                     </div>
-                    {auth.user.role !== 'member' && (
+                    {!demoMode &&
+                        ['admin', 'leader'].includes(auth.user.role) && (
                         <button
                             className="sync-button"
                             onClick={sync}
@@ -101,6 +107,13 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                         </button>
                     )}
                 </header>
+
+                {demoMode && (
+                    <div className="members-empty-warning">
+                        Modo demo: o histórico foi carregado pelos seeders e a
+                        sincronização com o jogo está desativada.
+                    </div>
+                )}
 
                 {!clan && (
                     <div className="members-empty-warning">
@@ -138,7 +151,11 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                     <div className="members-empty">
                         <div className="members-empty-mark">VS</div>
                         <h3>Nenhuma guerra sincronizada.</h3>
-                        <p>Importe o histórico disponível na API do jogo.</p>
+                        <p>
+                            {demoMode
+                                ? 'Execute os seeders para carregar o histórico de demonstração.'
+                                : 'Importe o histórico disponível na API do jogo.'}
+                        </p>
                     </div>
                 ) : (
                     <div className="members-table-wrap">
@@ -158,7 +175,9 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                                     <tr key={war.id}>
                                         <td>
                                             <span className={`war-result is-${war.result ?? 'pending'}`}>
-                                                {resultLabels[war.result] ?? 'Pendente'}
+                                                {resultLabels[war.result] ??
+                                                    stateLabels[war.state] ??
+                                                    'Pendente'}
                                             </span>
                                         </td>
                                         <td>

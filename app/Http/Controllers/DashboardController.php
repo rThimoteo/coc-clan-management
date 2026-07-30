@@ -4,16 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Enums\MemberStatus;
 use App\Models\Clan;
-use App\Models\Member;
+use App\Models\ClanMembership;
 use App\Models\War;
+use App\Services\Clans\ActiveClanContext;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(Request $request, ActiveClanContext $context): Response
     {
+        $clan = $context->active($request);
         $reportableWars = War::query()
+            ->when($clan, fn ($query, Clan $activeClan) => $query
+                ->whereBelongsTo($activeClan))
+            ->when(! $clan, fn ($query) => $query->whereRaw('1 = 0'))
             ->whereNotIn('opponent_tag', ['', '#']);
         $monthlyWars = (clone $reportableWars)
             ->whereBetween('end_time', [
@@ -32,9 +38,12 @@ class DashboardController extends Controller
                 ->active()
                 ->latest('end_time')
                 ->first(),
-            'clan' => Clan::query()->first(),
+            'clan' => $clan,
             'metrics' => [
-                'activeMembers' => Member::query()
+                'activeMembers' => ClanMembership::query()
+                    ->when($clan, fn ($query, Clan $activeClan) => $query
+                        ->whereBelongsTo($activeClan))
+                    ->when(! $clan, fn ($query) => $query->whereRaw('1 = 0'))
                     ->whereHas('status', fn ($query) => $query
                         ->where('slug', MemberStatus::In->value))
                     ->count(),

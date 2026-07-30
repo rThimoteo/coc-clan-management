@@ -3,11 +3,11 @@
 namespace App\Services\Wars;
 
 use App\Models\Clan;
+use App\Models\Player;
 use App\Models\War;
 use App\Services\ClashOfClans\ClashOfClansService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 class WarSyncService
 {
@@ -18,14 +18,8 @@ class WarSyncService
     /**
      * @return array{added: int, updated: int, detailed: int}
      */
-    public function sync(): array
+    public function sync(Clan $clan): array
     {
-        $clan = Clan::query()->first();
-
-        if ($clan === null) {
-            throw new RuntimeException('Configure a tag do clã antes de sincronizar as guerras.');
-        }
-
         $warLog = collect($this->clashOfClans->clanWarLog($clan->tag))
             ->filter(fn (array $war): bool => $this->hasOpponent($war))
             ->values()
@@ -38,6 +32,7 @@ class WarSyncService
 
         return DB::transaction(function () use ($clan, $warLog, $currentWar): array {
             War::query()
+                ->whereBelongsTo($clan)
                 ->whereIn('opponent_tag', ['', '#'])
                 ->delete();
 
@@ -46,7 +41,7 @@ class WarSyncService
             $detailed = 0;
 
             foreach ($warLog as $payload) {
-                [$war, $wasRecentlyCreated] = $this->persistWar($clan->tag, $payload, false);
+                [$war, $wasRecentlyCreated] = $this->persistWar($clan, $payload, false, 'regular');
                 $wasRecentlyCreated ? $added++ : $updated++;
 
                 if ($this->hasMemberDetails($payload)) {
@@ -56,7 +51,7 @@ class WarSyncService
             }
 
             if ($currentWar !== null) {
-                [$war, $wasRecentlyCreated] = $this->persistWar($clan->tag, $currentWar, true);
+                [$war, $wasRecentlyCreated] = $this->persistWar($clan, $currentWar, true, 'regular');
 
                 if ($wasRecentlyCreated) {
                     $added++;
@@ -90,14 +85,38 @@ class WarSyncService
      * @param  array<string, mixed>  $payload
      * @return array{War, bool}
      */
-    private function persistWar(string $configuredClanTag, array $payload, bool $detailed): array
+    public function persistDetailedWar(Clan $clan, array $payload, string $type = 'regular'): array
     {
-        $payload = $this->orientPayload($configuredClanTag, $payload);
-        $externalKey = $this->externalKey($configuredClanTag, $payload);
-        $war = War::query()->firstOrNew(['external_key' => $externalKey]);
+        if (! $this->hasOpponent($payload)) {
+            throw new \InvalidArgumentException('Uma guerra detalhada precisa possuir oponente.');
+        }
+
+        return DB::transaction(function () use ($clan, $payload, $type): array {
+            [$war, $created] = $this->persistWar($clan, $payload, true, $type);
+            $this->persistDetails($war, $payload, $clan->tag);
+
+            return [$war, $created];
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{War, bool}
+     */
+    private function persistWar(Clan $clan, array $payload, bool $detailed, string $type): array
+    {
+        $payload = $this->orientPayload($clan->tag, $payload);
+        $externalKey = $this->externalKey($clan->tag, $payload);
+        $war = War::query()->firstOrNew([
+            'clan_id' => $clan->id,
+            'external_key' => $externalKey,
+        ]);
         $wasRecentlyCreated = ! $war->exists;
 
-        $attributes = $this->warAttributes($payload, $detailed);
+        $attributes = [
+            ...$this->warAttributes($payload, $detailed),
+            'type' => $type,
+        ];
 
         if ($war->has_details && ! $detailed) {
             unset($attributes['has_details']);
@@ -143,6 +162,14 @@ class WarSyncService
     private function persistDetails(War $war, array $payload, string $configuredClanTag): void
     {
         $payload = $this->orientPayload($configuredClanTag, $payload);
+        $clanPlayerIds = Player::query()
+            ->whereIn(
+                'player_tag',
+                collect((array) data_get($payload, 'clan.members', []))
+                    ->pluck('tag')
+                    ->filter(),
+            )
+            ->pluck('id', 'player_tag');
 
         $war->members()->delete();
         $war->attacks()->delete();
@@ -151,6 +178,11 @@ class WarSyncService
             foreach ((array) data_get($payload, $side.'.members', []) as $member) {
                 $war->members()->create([
                     'side' => $side,
+                    'player_id' => $side === 'clan'
+                        ? $clanPlayerIds->get(
+                            $this->clashOfClans->normalizeTag((string) data_get($member, 'tag')),
+                        )
+                        : null,
                     'player_tag' => $this->clashOfClans->normalizeTag((string) data_get($member, 'tag')),
                     'name' => (string) data_get($member, 'name'),
                     'map_position' => (int) data_get($member, 'mapPosition'),
@@ -166,9 +198,13 @@ class WarSyncService
             ->unique(fn (array $attack): int => (int) data_get($attack, 'order'));
 
         foreach ($attacks as $attack) {
+            $attackerTag = $this->clashOfClans->normalizeTag((string) data_get($attack, 'attackerTag'));
+            $defenderTag = $this->clashOfClans->normalizeTag((string) data_get($attack, 'defenderTag'));
             $war->attacks()->create([
-                'attacker_tag' => $this->clashOfClans->normalizeTag((string) data_get($attack, 'attackerTag')),
-                'defender_tag' => $this->clashOfClans->normalizeTag((string) data_get($attack, 'defenderTag')),
+                'attacker_player_id' => $clanPlayerIds->get($attackerTag),
+                'defender_player_id' => $clanPlayerIds->get($defenderTag),
+                'attacker_tag' => $attackerTag,
+                'defender_tag' => $defenderTag,
                 'attack_order' => (int) data_get($attack, 'order'),
                 'stars' => (int) data_get($attack, 'stars'),
                 'destruction_percentage' => (float) data_get($attack, 'destructionPercentage'),
@@ -230,7 +266,7 @@ class WarSyncService
      */
     private function resultFromPayload(array $payload): ?string
     {
-        if (data_get($payload, 'state') !== 'warEnded') {
+        if (! in_array(data_get($payload, 'state'), ['warEnded', 'ended'], true)) {
             return null;
         }
 

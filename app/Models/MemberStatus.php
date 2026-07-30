@@ -13,4 +13,9 @@ class MemberStatus extends Model
     {
         return $this->hasMany(Member::class);
     }
+
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(ClanMembership::class);
+    }
 }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Models\Member;
+use App\Models\Player;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Auth\AccessCodeGenerator;
@@ -26,7 +26,9 @@ class UserController extends Controller
             'users' => User::query()
                 ->with([
                     'role:id,name,slug',
-                    'members:id,user_id,name,player_tag',
+                    'players' => fn ($query) => $query
+                        ->with('memberships.clan:id,name,tag,badge_url')
+                        ->orderBy('name'),
                 ])
                 ->when($search, fn ($query, string $value) => $query
                     ->where('name', 'like', "%{$value}%"))
@@ -36,18 +38,24 @@ class UserController extends Controller
             'roles' => Role::query()
                 ->orderBy('name')
                 ->get(['id', 'name', 'slug']),
-            'members' => Member::query()
+            'players' => Player::query()
                 ->with([
-                    'status:id,slug',
                     'user:id,name',
+                    'memberships' => fn ($query) => $query
+                        ->with([
+                            'clan:id,name,tag,badge_url',
+                            'status:id,slug',
+                        ])
+                        ->orderByDesc('left_at')
+                        ->orderBy('clan_id'),
                 ])
                 ->orderBy('name')
-                ->get(['id', 'user_id', 'member_status_id', 'name', 'player_tag']),
+                ->get(['id', 'user_id', 'name', 'player_tag', 'town_hall_level']),
             'permissions' => [
                 'createUsers' => $actor->isAdmin(),
                 'deleteUsers' => $actor->isAdmin(),
                 'generateCodes' => $actor->isAdmin(),
-                'linkMembers' => $actor->canManageUserRoles(),
+                'linkPlayers' => $actor->canManageUserRoles(),
             ],
             'filters' => ['search' => $search],
         ]);
@@ -140,25 +148,25 @@ class UserController extends Controller
         return back()->with('status', 'user-deleted');
     }
 
-    public function updateMembers(Request $request, User $user): RedirectResponse
+    public function updatePlayers(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
-            'member_ids' => ['array'],
-            'member_ids.*' => ['integer', 'distinct', Rule::exists(Member::class, 'id')],
+            'player_ids' => ['array'],
+            'player_ids.*' => ['integer', 'distinct', Rule::exists(Player::class, 'id')],
         ]);
-        $memberIds = $validated['member_ids'] ?? [];
+        $playerIds = $validated['player_ids'] ?? [];
 
-        DB::transaction(function () use ($user, $memberIds): void {
-            Member::query()
+        DB::transaction(function () use ($user, $playerIds): void {
+            Player::query()
                 ->where('user_id', $user->id)
-                ->whereNotIn('id', $memberIds)
+                ->whereNotIn('id', $playerIds)
                 ->update(['user_id' => null]);
 
-            Member::query()
-                ->whereIn('id', $memberIds)
+            Player::query()
+                ->whereIn('id', $playerIds)
                 ->update(['user_id' => $user->id]);
         });
 
-        return back()->with('status', 'user-members-updated');
+        return back()->with('status', 'user-players-updated');
     }
 }
