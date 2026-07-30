@@ -4,8 +4,10 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\MemberStatus as MemberStatusEnum;
 use App\Enums\UserRole;
-use App\Models\Member;
+use App\Models\Clan;
+use App\Models\ClanMembership;
 use App\Models\MemberStatus;
+use App\Models\Player;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,6 +32,37 @@ class UserManagementTest extends TestCase
                 ->has('users.data', 3)
                 ->missing('users.data.0.access_code')
                 ->has('roles', 4));
+    }
+
+    public function test_user_list_exposes_players_with_their_clan_memberships(): void
+    {
+        $admin = $this->admin();
+        $user = User::factory()->create(['name' => 'Jogador']);
+        $primary = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'name' => 'Principal',
+            'is_default' => true,
+        ]);
+        $secondary = Clan::query()->create([
+            'tag' => '#V9Y20',
+            'name' => 'Academia',
+        ]);
+        $player = Player::query()->create([
+            'user_id' => $user->id,
+            'player_tag' => '#PQLG2',
+            'name' => 'Conta principal',
+        ]);
+        $this->membership($primary, $player);
+        $this->membership($secondary, $player);
+
+        $this->actingAs($admin)
+            ->get('/admin/users?search=Jogador')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('users.data', 1)
+                ->where('users.data.0.players.0.id', $player->id)
+                ->has('users.data.0.players.0.memberships', 2)
+                ->where('players.0.memberships.0.clan.id', $primary->id)
+                ->where('players.0.memberships.1.clan.id', $secondary->id));
     }
 
     public function test_user_list_is_paginated_twenty_at_a_time(): void
@@ -180,7 +213,7 @@ class UserManagementTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('permissions.createUsers', false)
                 ->where('permissions.generateCodes', false)
-                ->where('permissions.linkMembers', true));
+                ->where('permissions.linkPlayers', true));
 
         $this->actingAs($leader)
             ->patch("/admin/users/{$member->id}/role", [
@@ -234,63 +267,65 @@ class UserManagementTest extends TestCase
         }
     }
 
-    public function test_admin_can_link_multiple_members_to_a_user(): void
+    public function test_admin_can_link_multiple_players_from_different_clans_to_a_user(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $status = MemberStatus::query()
-            ->where('slug', MemberStatusEnum::In->value)
-            ->sole();
-        $firstMember = Member::query()->create([
-            'member_status_id' => $status->id,
+        $primary = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'name' => 'Principal',
+            'is_default' => true,
+        ]);
+        $secondary = Clan::query()->create([
+            'tag' => '#V9Y20',
+            'name' => 'Academia',
+        ]);
+        $firstPlayer = Player::query()->create([
             'player_tag' => '#PQLG2',
             'name' => 'Primeira conta',
         ]);
-        $secondMember = Member::query()->create([
-            'member_status_id' => $status->id,
+        $secondPlayer = Player::query()->create([
             'player_tag' => '#QGRJ9',
             'name' => 'Segunda conta',
         ]);
+        $this->membership($primary, $firstPlayer);
+        $this->membership($secondary, $secondPlayer);
 
         $this->actingAs($this->admin())
-            ->put("/admin/users/{$user->id}/members", [
-                'member_ids' => [$firstMember->id, $secondMember->id],
+            ->put("/admin/users/{$user->id}/players", [
+                'player_ids' => [$firstPlayer->id, $secondPlayer->id],
             ])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame($user->id, $firstMember->fresh()->user_id);
-        $this->assertSame($user->id, $secondMember->fresh()->user_id);
+        $this->assertSame($user->id, $firstPlayer->fresh()->user_id);
+        $this->assertSame($user->id, $secondPlayer->fresh()->user_id);
 
         $this->actingAs($this->admin())
-            ->put("/admin/users/{$otherUser->id}/members", [
-                'member_ids' => [$firstMember->id],
+            ->put("/admin/users/{$otherUser->id}/players", [
+                'player_ids' => [$firstPlayer->id],
             ])
             ->assertSessionHasNoErrors();
 
-        $this->assertSame($otherUser->id, $firstMember->fresh()->user_id);
-        $this->assertSame($user->id, $secondMember->fresh()->user_id);
+        $this->assertSame($otherUser->id, $firstPlayer->fresh()->user_id);
+        $this->assertSame($user->id, $secondPlayer->fresh()->user_id);
 
         $this->actingAs($this->admin())
-            ->put("/admin/users/{$user->id}/members", [
-                'member_ids' => [],
+            ->put("/admin/users/{$user->id}/players", [
+                'player_ids' => [],
             ]);
 
-        $this->assertNull($secondMember->fresh()->user_id);
+        $this->assertNull($secondPlayer->fresh()->user_id);
     }
 
-    public function test_admin_can_delete_a_non_admin_and_linked_members_are_preserved(): void
+    public function test_admin_can_delete_a_non_admin_and_linked_players_are_preserved(): void
     {
         $admin = $this->admin();
         $target = User::factory()->create([
             'role_id' => $this->role(UserRole::Member)->id,
         ]);
-        $member = Member::query()->create([
+        $player = Player::query()->create([
             'user_id' => $target->id,
-            'member_status_id' => MemberStatus::query()
-                ->where('slug', MemberStatusEnum::In->value)
-                ->sole()
-                ->id,
-            'player_tag' => '#DELETE1',
+            'player_tag' => '#QGRJ9',
             'name' => 'Conta preservada',
         ]);
 
@@ -299,7 +334,7 @@ class UserManagementTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertModelMissing($target);
-        $this->assertNull($member->fresh()->user_id);
+        $this->assertNull($player->fresh()->user_id);
     }
 
     public function test_admin_can_not_delete_themselves_or_another_admin(): void
@@ -334,7 +369,7 @@ class UserManagementTest extends TestCase
             ->delete("/admin/users/{$target->id}")
             ->assertForbidden();
         $this->actingAs($leader)
-            ->put("/admin/users/{$target->id}/members", ['member_ids' => []])
+            ->put("/admin/users/{$target->id}/players", ['player_ids' => []])
             ->assertSessionHasNoErrors();
     }
 
@@ -368,5 +403,17 @@ class UserManagementTest extends TestCase
     private function role(UserRole $role): Role
     {
         return Role::query()->where('slug', $role->value)->sole();
+    }
+
+    private function membership(Clan $clan, Player $player): ClanMembership
+    {
+        return ClanMembership::query()->create([
+            'clan_id' => $clan->id,
+            'player_id' => $player->id,
+            'member_status_id' => MemberStatus::query()
+                ->where('slug', MemberStatusEnum::In->value)
+                ->sole()
+                ->id,
+        ]);
     }
 }

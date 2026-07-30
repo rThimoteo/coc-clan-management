@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Clan;
 use App\Services\Wars\WarSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -21,15 +22,33 @@ class SyncWars extends Command
             return self::SUCCESS;
         }
 
-        try {
-            $summary = $warSync->sync();
-        } catch (Throwable $exception) {
-            Log::error('Falha na sincronização automática de guerras.', [
-                'exception' => $exception,
-            ]);
-            $this->error($exception->getMessage());
+        $clans = Clan::query()->orderBy('id')->get();
+
+        if ($clans->isEmpty()) {
+            $this->error('Nenhum clã está configurado para sincronização.');
 
             return self::FAILURE;
+        }
+
+        $summary = ['added' => 0, 'updated' => 0, 'detailed' => 0];
+        $failed = false;
+
+        foreach ($clans as $clan) {
+            try {
+                $clanSummary = $warSync->sync($clan);
+
+                foreach ($summary as $key => $value) {
+                    $summary[$key] = $value + $clanSummary[$key];
+                }
+            } catch (Throwable $exception) {
+                $failed = true;
+                Log::error('Falha na sincronização automática de guerras.', [
+                    'clan_id' => $clan->id,
+                    'clan_tag' => $clan->tag,
+                    'exception' => $exception,
+                ]);
+                $this->error("{$clan->tag}: {$exception->getMessage()}");
+            }
         }
 
         Log::info('Sincronização automática de guerras concluída.', $summary);
@@ -40,6 +59,6 @@ class SyncWars extends Command
             $summary['detailed'],
         ));
 
-        return self::SUCCESS;
+        return $failed ? self::FAILURE : self::SUCCESS;
     }
 }

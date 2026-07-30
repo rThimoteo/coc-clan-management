@@ -1,0 +1,31 @@
+{
+    "result": null,
+    "endTime": "20260711T043142.000Z",
+    "teamSize": 15,
+    "attacksPerMember": 1,
+    "battleModifier": "none",
+    "clan": {
+        "tag": "#29R0RUU2R",
+        "name": "APOCALIPSE NOW",
+        "badgeUrls": {
+            "small": "https://api-assets.clashofclans.com/badges/70/V2diKPAKOGsT5fk_HiVDWnP8X0Rr0MbEKLeJY3BN0ho.png",
+            "large": "https://api-assets.clashofclans.com/badges/512/V2diKPAKOGsT5fk_HiVDWnP8X0Rr0MbEKLeJY3BN0ho.png",
+            "medium": "https://api-assets.clashofclans.com/badges/200/V2diKPAKOGsT5fk_HiVDWnP8X0Rr0MbEKLeJY3BN0ho.png"
+        },
+        "clanLevel": 28,
+        "attacks": 102,
+        "stars": 313,
+        "destructionPercentage": 658.8,
+        "expEarned": 0
+    },
+    "opponent": {
+        "badgeUrls": {
+            "small": "https://api-assets.clashofclans.com/badges/70/H39b_-WLZGtZVWQ0hqTkE-Tn2AaQnQWy_Iz4yBlvL0M.png",
+            "large": "https://api-assets.clashofclans.com/badges/512/H39b_-WLZGtZVWQ0hqTkE-Tn2AaQnQWy_Iz4yBlvL0M.png",
+            "medium": "https://api-assets.clashofclans.com/badges/200/H39b_-WLZGtZVWQ0hqTkE-Tn2AaQnQWy_Iz4yBlvL0M.png"
+        },
+        "clanLevel": 0,
+        "stars": 264,
+        "destructionPercentage": 0.0
+    }
+}

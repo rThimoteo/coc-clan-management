@@ -5,10 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
+    'clan_id',
     'external_key',
+    'type',
     'state',
     'result',
     'team_size',
@@ -28,6 +32,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class War extends Model
 {
+    public function clan(): BelongsTo
+    {
+        return $this->belongsTo(Clan::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('end_time', '>', now());
@@ -53,5 +62,10 @@ class War extends Model
     public function attacks(): HasMany
     {
         return $this->hasMany(WarAttack::class);
+    }
+
+    public function leagueRoundWar(): HasOne
+    {
+        return $this->hasOne(ClanWarLeagueRoundWar::class);
     }
 }
