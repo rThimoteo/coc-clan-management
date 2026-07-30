@@ -69,7 +69,7 @@ export default function Dashboard({ activeWar, clan, metrics, recentWars }) {
                         {recentWars.map((war) => (
                             <article key={war.id}>
                                 <span className={`war-result is-${war.result ?? 'pending'}`}>
-                                    {resultLabel(war.result)}
+                                    {resultLabel(war.result, war.state)}
                                 </span>
                                 <div>
                                     <strong>{war.opponent_name}</strong>
@@ -98,7 +98,11 @@ export default function Dashboard({ activeWar, clan, metrics, recentWars }) {
     );
 }
 
-function resultLabel(result) {
+function resultLabel(result, state) {
+    if (state === 'preparation') {
+        return 'Preparação';
+    }
+
     return {
         win: 'Vitória',
         lose: 'Derrota',

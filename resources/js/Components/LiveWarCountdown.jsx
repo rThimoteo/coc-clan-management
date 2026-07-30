@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 
-export default function LiveWarCountdown({ endTime, compact = false }) {
+export default function LiveWarCountdown({
+    endTime,
+    compact = false,
+    label = 'TERMINA EM',
+    expiredLabel = 'Encerrando...',
+}) {
     const [remaining, setRemaining] = useState(() =>
         remainingSeconds(endTime),
     );
@@ -18,7 +23,7 @@ export default function LiveWarCountdown({ endTime, compact = false }) {
     if (remaining <= 0) {
         return (
             <span className={`live-war-countdown ${compact ? 'is-compact' : ''}`}>
-                Encerrando...
+                {expiredLabel}
             </span>
         );
     }
@@ -36,7 +41,7 @@ export default function LiveWarCountdown({ endTime, compact = false }) {
             dateTime={new Date(endTime).toISOString()}
             aria-label={`${hours} horas, ${minutes} minutos e ${seconds} segundos restantes`}
         >
-            {!compact && <small>TERMINA EM</small>}
+            {!compact && <small>{label}</small>}
             <strong>{formatted}</strong>
         </time>
     );

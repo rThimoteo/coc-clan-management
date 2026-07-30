@@ -222,6 +222,27 @@ class WarPanelTest extends TestCase
                 ->where('isActive', false));
     }
 
+    public function test_preparation_is_distinguished_from_a_live_battle(): void
+    {
+        $war = War::query()->create([
+            ...$this->summaryAttributes(),
+            'external_key' => hash('sha256', 'preparation-war'),
+            'state' => 'preparation',
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDays(2),
+            'has_details' => true,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/wars/{$war->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('isActive', true)
+                ->where('isPreparation', true)
+                ->where('war.state', 'preparation')
+                ->where('war.start_time', $war->start_time->toJSON()));
+    }
+
     public function test_war_without_details_does_not_expose_details_page(): void
     {
         $war = War::query()->create($this->summaryAttributes());

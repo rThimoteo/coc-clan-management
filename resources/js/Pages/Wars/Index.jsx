@@ -11,6 +11,11 @@ const resultLabels = {
     tie: 'Empate',
 };
 
+const stateLabels = {
+    preparation: 'Preparação',
+    inWar: 'Em andamento',
+};
+
 export default function Index({ wars, clan, activeWar, warStats, filters }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
@@ -170,7 +175,9 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                                     <tr key={war.id}>
                                         <td>
                                             <span className={`war-result is-${war.result ?? 'pending'}`}>
-                                                {resultLabels[war.result] ?? 'Pendente'}
+                                                {resultLabels[war.result] ??
+                                                    stateLabels[war.state] ??
+                                                    'Pendente'}
                                             </span>
                                         </td>
                                         <td>

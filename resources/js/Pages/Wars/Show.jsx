@@ -3,8 +3,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
-export default function Show({ war, clan, isActive }) {
-    const { auth, errors, status, syncSummary } = usePage().props;
+export default function Show({ war, clan, isActive, isPreparation }) {
+    const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const [defenseMember, setDefenseMember] = useState(null);
     const clanMembers = war.members.filter((member) => member.side === 'clan');
@@ -46,7 +46,7 @@ export default function Show({ war, clan, isActive }) {
                     ← Voltar para guerras
                 </Link>
 
-                {['admin', 'leader'].includes(auth.user.role) && (
+                {!demoMode && ['admin', 'leader'].includes(auth.user.role) && (
                     <button
                         className={`war-refresh-button ${isActive ? 'is-live' : ''}`}
                         onClick={sync}
@@ -88,16 +88,35 @@ export default function Show({ war, clan, isActive }) {
                 <div className="war-scoreboard-center">
                     {isActive && (
                         <>
-                            <div className="war-live-badge" role="status">
+                            <div
+                                className={`war-live-badge ${isPreparation ? 'is-preparation' : ''}`}
+                                role="status"
+                            >
                                 <span aria-hidden="true" />
-                                AO VIVO
+                                {isPreparation ? 'PREPARAÇÃO' : 'AO VIVO'}
                             </div>
-                            <LiveWarCountdown endTime={war.end_time} />
+                            <LiveWarCountdown
+                                endTime={
+                                    isPreparation
+                                        ? war.start_time
+                                        : war.end_time
+                                }
+                                label={
+                                    isPreparation
+                                        ? 'COMEÇA EM'
+                                        : 'TERMINA EM'
+                                }
+                                expiredLabel={
+                                    isPreparation
+                                        ? 'Começando...'
+                                        : 'Encerrando...'
+                                }
+                            />
                         </>
                     )}
                     <span>{war.team_size} × {war.team_size}</span>
                     <strong>{war.clan_stars} <i>×</i> {war.opponent_stars}</strong>
-                    <small>{resultLabel(war.result)}</small>
+                    <small>{resultLabel(war.result, war.state)}</small>
                 </div>
                 <ClanScore
                     name={war.opponent_name}
@@ -272,7 +291,11 @@ function DefenseModal({ member, opponents, onClose }) {
     );
 }
 
-function resultLabel(result) {
+function resultLabel(result, state) {
+    if (state === 'preparation') {
+        return 'Em preparação';
+    }
+
     return { win: 'VITÓRIA', lose: 'DERROTA', tie: 'EMPATE' }[result] ?? 'EM ANDAMENTO';
 }
 

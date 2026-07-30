@@ -51,6 +51,7 @@ class WarController extends Controller
         return Inertia::render('Wars/Show', [
             'clan' => Clan::query()->first(),
             'isActive' => $war->end_time->isFuture(),
+            'isPreparation' => $war->state === 'preparation',
             'war' => $war->load([
                 'members' => fn ($query) => $query->orderBy('map_position'),
                 'attacks' => fn ($query) => $query->orderBy('attack_order'),
