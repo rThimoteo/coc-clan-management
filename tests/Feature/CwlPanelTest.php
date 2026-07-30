@@ -48,6 +48,8 @@ class CwlPanelTest extends TestCase
                 ->where('leagues.data.0.id', $primaryLeague->id)
                 ->where('leagues.data.0.participants_count', 1)
                 ->where('leagues.data.0.rounds_count', 1)
+                ->where('leagueStats.total', 1)
+                ->where('leagueStats.detailed', 1)
                 ->missing('leagues.data.0.rounds'));
 
         $this->actingAs(User::factory()->create())
@@ -72,6 +74,45 @@ class CwlPanelTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('warStats.total', 1)
                 ->where('wars.data.0.id', $regularWar->id));
+    }
+
+    public function test_cwl_summary_metrics_include_all_pages_for_the_active_clan(): void
+    {
+        $primary = $this->clan('#QGRJ2', true);
+        $secondary = $this->clan('#V9Y20');
+        $syncReference = now()->startOfSecond();
+
+        foreach (range(1, 11) as $month) {
+            $league = $this->league(
+                $primary,
+                sprintf('2025-%02d', $month),
+                [
+                    'synced_at' => $syncReference->copy()
+                        ->subMonths(12 - $month),
+                ],
+            );
+
+            if ($month <= 3) {
+                $league->rounds()->create(['round_number' => 1]);
+            }
+        }
+
+        $this->league($secondary, '2025-12', [
+            'synced_at' => $syncReference->copy()->addDay(),
+        ])->rounds()->create(['round_number' => 1]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $primary->id])
+            ->get('/cwl?page=2')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('leagues.data', 1)
+                ->where('leagueStats.total', 11)
+                ->where('leagueStats.detailed', 3)
+                ->where(
+                    'leagueStats.last_synced_at',
+                    $syncReference->copy()->subMonth()->toJSON(),
+                ));
     }
 
     public function test_authorized_user_can_sync_the_active_clans_cwl(): void
@@ -138,13 +179,20 @@ class CwlPanelTest extends TestCase
         ]);
     }
 
-    private function league(Clan $clan, string $season): ClanWarLeague
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function league(
+        Clan $clan,
+        string $season,
+        array $attributes = [],
+    ): ClanWarLeague
     {
-        return $clan->warLeagues()->create([
+        return $clan->warLeagues()->create(array_merge([
             'season' => $season,
             'state' => 'inWar',
             'synced_at' => now(),
-        ]);
+        ], $attributes));
     }
 
     private function war(Clan $clan, string $type, string $opponent): War

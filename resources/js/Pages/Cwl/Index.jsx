@@ -10,14 +10,9 @@ const stateLabels = {
 
 const CWL_ROUNDS = 7;
 
-export default function Index({ clan, leagues }) {
+export default function Index({ clan, leagues, leagueStats }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
-    const summarized = leagues.data.filter((league) => league.has_summary);
-    const totalStars = summarized.reduce(
-        (total, league) => total + league.clan_stars,
-        0,
-    );
 
     return (
         <AuthenticatedLayout
@@ -29,27 +24,17 @@ export default function Index({ clan, leagues }) {
             <section className="members-summary war-summary">
                 <div>
                     <span>Temporadas registradas</span>
-                    <strong>{leagues.total}</strong>
-                </div>
-                <div>
-                    <span>Estrelas nos resumos</span>
-                    <strong>{totalStars}</strong>
+                    <strong>{leagueStats.total}</strong>
                 </div>
                 <div>
                     <span>Temporadas detalhadas</span>
-                    <strong>
-                        {
-                            leagues.data.filter(
-                                (league) => league.rounds_count > 0,
-                            ).length
-                        }
-                    </strong>
+                    <strong>{leagueStats.detailed}</strong>
                 </div>
                 <div className="members-sync-meta">
                     <span>Última sincronização</span>
                     <strong>
-                        {leagues.data[0]?.synced_at
-                            ? formatDate(leagues.data[0].synced_at)
+                        {leagueStats.last_synced_at
+                            ? formatDate(leagueStats.last_synced_at)
                             : 'Ainda não realizada'}
                     </strong>
                 </div>

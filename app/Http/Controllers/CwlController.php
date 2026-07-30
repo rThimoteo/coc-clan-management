@@ -7,6 +7,7 @@ use App\Models\ClanWarLeague;
 use App\Services\Clans\ActiveClanContext;
 use App\Services\ClashOfClans\ClashOfClansException;
 use App\Services\Wars\CwlSyncService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,20 +19,31 @@ class CwlController extends Controller
     public function index(Request $request, ActiveClanContext $context): Response
     {
         $clan = $context->active($request);
-        $leagues = ClanWarLeague::query()
+        $leaguesQuery = ClanWarLeague::query()
             ->when($clan, fn ($query, Clan $activeClan) => $query
                 ->whereBelongsTo($activeClan))
-            ->when(! $clan, fn ($query) => $query->whereRaw('1 = 0'))
+            ->when(! $clan, fn ($query) => $query->whereRaw('1 = 0'));
+        $leagues = (clone $leaguesQuery)
             ->withCount([
                 'rounds',
                 'participants',
             ])
             ->latest('season')
             ->paginate(10);
+        $lastSyncedAt = (clone $leaguesQuery)->max('synced_at');
 
         return Inertia::render('Cwl/Index', [
             'clan' => $clan,
             'leagues' => $leagues,
+            'leagueStats' => [
+                'total' => (clone $leaguesQuery)->count(),
+                'detailed' => (clone $leaguesQuery)
+                    ->whereHas('rounds')
+                    ->count(),
+                'last_synced_at' => $lastSyncedAt
+                    ? CarbonImmutable::parse($lastSyncedAt)
+                    : null,
+            ],
         ]);
     }
 
