@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Enums\MemberStatus as MemberStatusEnum;
-use App\Models\Member;
+use App\Models\Clan;
+use App\Models\ClanMembership;
 use App\Models\MemberStatus;
+use App\Models\Player;
 use App\Models\User;
 use App\Models\War;
+use App\Services\Clans\ActiveClanContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -17,6 +20,10 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_displays_operational_metrics_and_recent_wars(): void
     {
+        $clan = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'is_default' => true,
+        ]);
         $inStatus = MemberStatus::query()
             ->where('slug', MemberStatusEnum::In->value)
             ->sole();
@@ -25,21 +32,29 @@ class DashboardTest extends TestCase
             ->sole();
 
         foreach (range(1, 3) as $index) {
-            Member::query()->create([
-                'member_status_id' => $inStatus->id,
+            $player = Player::query()->create([
                 'player_tag' => "#ACTIVE{$index}",
                 'name' => "Membro ativo {$index}",
             ]);
+            ClanMembership::query()->create([
+                'clan_id' => $clan->id,
+                'player_id' => $player->id,
+                'member_status_id' => $inStatus->id,
+            ]);
         }
-        Member::query()->create([
-            'member_status_id' => $outStatus->id,
+        $inactivePlayer = Player::query()->create([
             'player_tag' => '#INACTIVE',
             'name' => 'Membro fora',
         ]);
+        ClanMembership::query()->create([
+            'clan_id' => $clan->id,
+            'player_id' => $inactivePlayer->id,
+            'member_status_id' => $outStatus->id,
+        ]);
 
-        $this->createWar('win', now()->subDays(2), 'Vitória recente');
-        $this->createWar('lose', now()->subDay(), 'Derrota recente');
-        $this->createWar('win', now()->subMonthNoOverflow(), 'Guerra anterior');
+        $this->createWar($clan, 'win', now()->subDays(2), 'Vitória recente');
+        $this->createWar($clan, 'lose', now()->subDay(), 'Derrota recente');
+        $this->createWar($clan, 'win', now()->subMonthNoOverflow(), 'Guerra anterior');
 
         $this->actingAs(User::factory()->create())
             ->get('/dashboard')
@@ -67,9 +82,48 @@ class DashboardTest extends TestCase
                 ->where('activeWar', null));
     }
 
-    private function createWar(string $result, mixed $endTime, string $opponent): War
+    public function test_dashboard_only_aggregates_the_active_clan(): void
+    {
+        $primary = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'is_default' => true,
+        ]);
+        $secondary = Clan::query()->create(['tag' => '#V9Y20']);
+        $status = MemberStatus::query()
+            ->where('slug', MemberStatusEnum::In->value)
+            ->sole();
+
+        foreach ([$primary, $secondary] as $index => $clan) {
+            $player = Player::query()->create([
+                'player_tag' => "#PLAYER{$index}",
+                'name' => "Player {$index}",
+            ]);
+            ClanMembership::query()->create([
+                'clan_id' => $clan->id,
+                'player_id' => $player->id,
+                'member_status_id' => $status->id,
+            ]);
+        }
+        $this->createWar($primary, 'win', now()->subDay(), 'Rival principal');
+        $this->createWar($secondary, 'lose', now()->subDay(), 'Rival secundário');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('clan.id', $secondary->id)
+                ->where('metrics.activeMembers', 1)
+                ->where('metrics.monthlyWars', 1)
+                ->where('metrics.winRate', 0)
+                ->has('recentWars', 1)
+                ->where('recentWars.0.opponent_name', 'Rival secundário'));
+    }
+
+    private function createWar(Clan $clan, string $result, mixed $endTime, string $opponent): War
     {
         return War::query()->create([
+            'clan_id' => $clan->id,
             'external_key' => hash('sha256', $opponent),
             'result' => $result,
             'team_size' => 15,

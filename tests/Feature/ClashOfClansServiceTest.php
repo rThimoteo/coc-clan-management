@@ -91,6 +91,193 @@ class ClashOfClansServiceTest extends TestCase
         );
     }
 
+    public function test_it_maps_the_documented_cwl_league_group_contract(): void
+    {
+        Http::fake([
+            'api.clash.test/v1/clans/*/currentwar/leaguegroup' => Http::response(
+                $this->fixture('cwl_league_group.json'),
+            ),
+        ]);
+
+        $group = app(ClashOfClansService::class)
+            ->currentClanWarLeagueGroup('#2Q8L9Y0JP');
+
+        $this->assertNotNull($group);
+        $this->assertSame('inWar', $group->state);
+        $this->assertSame('2026-08', $group->season);
+        $this->assertCount(2, $group->clans);
+        $this->assertSame('#2Q8L9Y0JP', $group->clans[0]->tag);
+        $this->assertSame(20, $group->clans[0]->clanLevel);
+        $this->assertSame('https://assets.example/clan-principal-medium.png', $group->clans[0]->badgeUrl);
+        $this->assertCount(2, $group->rounds);
+        $this->assertSame(2, $group->rounds[1]->number);
+        $this->assertSame('#2PR', $group->rounds[1]->warTags[0]->value);
+        $this->assertTrue($group->rounds[1]->warTags[1]->isPlaceholder);
+    }
+
+    public function test_it_returns_the_documented_cwl_war_payload(): void
+    {
+        $payload = $this->fixture('cwl_war.json');
+        Http::fake([
+            'api.clash.test/v1/clanwarleagues/wars/*' => Http::response($payload),
+        ]);
+
+        $war = app(ClashOfClansService::class)->clanWarLeagueWar('#2PP');
+
+        $this->assertSame($payload, $war);
+        Http::assertSent(fn ($request): bool => $request->url()
+            === 'https://api.clash.test/v1/clanwarleagues/wars/%232PP');
+    }
+
+    #[DataProvider('cwlStateProvider')]
+    public function test_it_treats_supported_cwl_states(string $state, bool $returnsNull): void
+    {
+        $payload = $state === 'notInWar'
+            ? ['state' => $state]
+            : [
+                ...$this->fixture('cwl_league_group.json'),
+                'state' => $state,
+            ];
+        Http::fake([
+            'api.clash.test/v1/clans/*/currentwar/leaguegroup' => Http::response($payload),
+        ]);
+
+        $group = app(ClashOfClansService::class)
+            ->currentClanWarLeagueGroup('#QGRJ2');
+
+        $returnsNull
+            ? $this->assertNull($group)
+            : $this->assertSame($state, $group->state);
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function cwlStateProvider(): array
+    {
+        return [
+            'not participating' => ['notInWar', true],
+            'preparation' => ['preparation', false],
+            'live' => ['inWar', false],
+            'ended' => ['ended', false],
+        ];
+    }
+
+    #[DataProvider('cwlWarStateProvider')]
+    public function test_it_treats_supported_cwl_war_states(string $state, bool $returnsNull): void
+    {
+        Http::fake([
+            'api.clash.test/v1/clanwarleagues/wars/*' => Http::response(
+                $state === 'notInWar'
+                    ? ['state' => $state]
+                    : ['state' => $state, 'clan' => [], 'opponent' => []],
+            ),
+        ]);
+
+        $war = app(ClashOfClansService::class)->clanWarLeagueWar('#2PP');
+
+        $returnsNull
+            ? $this->assertNull($war)
+            : $this->assertSame($state, $war['state']);
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function cwlWarStateProvider(): array
+    {
+        return [
+            'not available' => ['notInWar', true],
+            'preparation' => ['preparation', false],
+            'live' => ['inWar', false],
+            'api ended name' => ['warEnded', false],
+            'documented ended name' => ['ended', false],
+        ];
+    }
+
+    #[DataProvider('cwlIncompletePayloadProvider')]
+    public function test_it_rejects_incomplete_cwl_payloads(
+        string $method,
+        array $payload,
+        string $message,
+    ): void {
+        Http::fake([
+            'api.clash.test/v1/*' => Http::response($payload),
+        ]);
+
+        $this->expectException(ClashOfClansException::class);
+        $this->expectExceptionMessage($message);
+
+        app(ClashOfClansService::class)->{$method}('#QGRJ2');
+    }
+
+    /**
+     * @return array<string, array{string, array<string, mixed>, string}>
+     */
+    public static function cwlIncompletePayloadProvider(): array
+    {
+        return [
+            'unknown group state' => [
+                'currentClanWarLeagueGroup',
+                ['state' => 'unknown'],
+                'estado de Liga de Guerra desconhecido',
+            ],
+            'group without season' => [
+                'currentClanWarLeagueGroup',
+                ['state' => 'inWar', 'clans' => [], 'rounds' => []],
+                'grupo de Liga de Guerra incompleto',
+            ],
+            'incomplete participant' => [
+                'currentClanWarLeagueGroup',
+                ['state' => 'inWar', 'season' => '2026-08', 'clans' => [[]], 'rounds' => []],
+                'participante incompleto',
+            ],
+            'round without tags' => [
+                'currentClanWarLeagueGroup',
+                ['state' => 'inWar', 'season' => '2026-08', 'clans' => [], 'rounds' => [[]]],
+                'rodada incompleta',
+            ],
+            'unknown war state' => [
+                'clanWarLeagueWar',
+                ['state' => 'unknown'],
+                'estado de guerra da Liga desconhecido',
+            ],
+            'war without sides' => [
+                'clanWarLeagueWar',
+                ['state' => 'preparation'],
+                'detalhes incompletos',
+            ],
+        ];
+    }
+
+    #[DataProvider('cwlErrorProvider')]
+    public function test_cwl_api_errors_have_specific_messages(
+        int $status,
+        string $message,
+    ): void {
+        Http::fake([
+            'api.clash.test/v1/clans/*/currentwar/leaguegroup' => Http::response([], $status),
+        ]);
+
+        $this->expectException(ClashOfClansException::class);
+        $this->expectExceptionMessage($message);
+
+        app(ClashOfClansService::class)->currentClanWarLeagueGroup('#QGRJ2');
+    }
+
+    /**
+     * @return array<string, array{int, string}>
+     */
+    public static function cwlErrorProvider(): array
+    {
+        return [
+            'private' => [403, 'dados da Liga de Guerra do clã estão privados'],
+            'not available' => [404, 'ainda não está disponível'],
+            'rate limited' => [429, 'temporariamente ocupada'],
+            'unexpected' => [500, 'Não foi possível consultar a Liga de Guerra'],
+        ];
+    }
+
     #[DataProvider('apiErrorProvider')]
     public function test_player_api_errors_have_actionable_messages(int $status, string $message): void
     {
@@ -198,6 +385,8 @@ class ClashOfClansServiceTest extends TestCase
         return [
             'player endpoint' => ['findPlayer'],
             'clan endpoint' => ['clanProfile'],
+            'league group endpoint' => ['currentClanWarLeagueGroup'],
+            'league war endpoint' => ['clanWarLeagueWar'],
         ];
     }
 
@@ -218,5 +407,18 @@ class ClashOfClansServiceTest extends TestCase
         $this->assertTrue($service->isDemoMode());
         $this->assertSame('Clã de Demonstração', $service->clanProfile('qgrj2')->name);
         $this->assertSame('Jogador de Demonstração', $service->findPlayer('#PQLG2')->name);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fixture(string $name): array
+    {
+        $contents = file_get_contents(base_path("tests/Fixtures/clash_of_clans/{$name}"));
+        $this->assertIsString($contents);
+        $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertIsArray($decoded);
+
+        return $decoded;
     }
 }

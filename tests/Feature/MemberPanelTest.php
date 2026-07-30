@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Enums\MemberStatus as MemberStatusEnum;
 use App\Enums\UserRole;
 use App\Models\Clan;
-use App\Models\Member;
+use App\Models\ClanMembership;
 use App\Models\MemberStatus;
+use App\Models\Player;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Clans\ActiveClanContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
@@ -20,12 +22,9 @@ class MemberPanelTest extends TestCase
 
     public function test_member_panel_returns_paginated_members(): void
     {
+        $clan = $this->clan();
         $inStatus = $this->memberStatus(MemberStatusEnum::In);
-        Member::query()->create([
-            'member_status_id' => $inStatus->id,
-            'player_tag' => '#PQLG2',
-            'name' => 'Jogador',
-        ]);
+        $this->createMembership($clan, $inStatus, '#PQLG2', 'Jogador');
 
         $this->actingAs(User::factory()->create())
             ->get('/members')
@@ -41,14 +40,16 @@ class MemberPanelTest extends TestCase
 
     public function test_member_panel_paginates_twenty_members_at_a_time(): void
     {
+        $clan = $this->clan();
         $inStatus = $this->memberStatus(MemberStatusEnum::In);
 
         foreach (range(1, 50) as $index) {
-            Member::query()->create([
-                'member_status_id' => $inStatus->id,
-                'player_tag' => "#PAGE{$index}",
-                'name' => "Jogador {$index}",
-            ]);
+            $this->createMembership(
+                $clan,
+                $inStatus,
+                "#PAGE{$index}",
+                "Jogador {$index}",
+            );
         }
         $user = User::factory()->create();
 
@@ -70,6 +71,7 @@ class MemberPanelTest extends TestCase
 
     public function test_member_filters_and_sorting_are_applied_server_side(): void
     {
+        $clan = $this->clan();
         $inStatus = $this->memberStatus(MemberStatusEnum::In);
         $outStatus = $this->memberStatus(MemberStatusEnum::Out);
         $members = [
@@ -79,13 +81,14 @@ class MemberPanelTest extends TestCase
         ];
 
         foreach ($members as [$statusId, $tag, $name, $role, $townHall]) {
-            Member::query()->create([
-                'member_status_id' => $statusId,
-                'player_tag' => $tag,
-                'name' => $name,
-                'role' => $role,
-                'town_hall_level' => $townHall,
-            ]);
+            $this->createMembership(
+                $clan,
+                MemberStatus::query()->findOrFail($statusId),
+                $tag,
+                $name,
+                $role,
+                $townHall,
+            );
         }
         $user = User::factory()->create();
 
@@ -124,20 +127,22 @@ class MemberPanelTest extends TestCase
             'services.clash_of_clans.demo_mode' => false,
         ]);
 
-        $clan = Clan::query()->create(['tag' => '#QGRJ2']);
+        $clan = $this->clan();
         $inStatus = $this->memberStatus(MemberStatusEnum::In);
         $outStatus = $this->memberStatus(MemberStatusEnum::Out);
 
-        $returningMember = Member::query()->create([
-            'member_status_id' => $outStatus->id,
-            'player_tag' => '#PQLG2',
-            'name' => 'Nome preservado',
-        ]);
-        $departedMember = Member::query()->create([
-            'member_status_id' => $inStatus->id,
-            'player_tag' => '#V9Y20',
-            'name' => 'Jogador que saiu',
-        ]);
+        $returningMember = $this->createMembership(
+            $clan,
+            $outStatus,
+            '#PQLG2',
+            'Nome preservado',
+        );
+        $departedMember = $this->createMembership(
+            $clan,
+            $inStatus,
+            '#V9Y20',
+            'Jogador que saiu',
+        );
 
         Http::fake([
             'api.clashofclans.test/v1/clans/*' => Http::response([
@@ -172,16 +177,20 @@ class MemberPanelTest extends TestCase
         $departedMember->refresh();
 
         $this->assertSame($inStatus->id, $returningMember->member_status_id);
-        $this->assertSame('Nome preservado', $returningMember->name);
+        $this->assertSame('Nome preservado', $returningMember->player->name);
         $this->assertSame($outStatus->id, $departedMember->member_status_id);
-        $this->assertDatabaseHas(Member::class, [
+        $this->assertDatabaseHas(Player::class, [
             'player_tag' => '#QGRJ9',
             'name' => 'Novo jogador',
-            'member_status_id' => $inStatus->id,
             'town_hall_level' => 15,
         ]);
-        $this->assertSame(16, $returningMember->town_hall_level);
-        $this->assertDatabaseCount(Member::class, 3);
+        $this->assertDatabaseHas(ClanMembership::class, [
+            'clan_id' => $clan->id,
+            'member_status_id' => $inStatus->id,
+        ]);
+        $this->assertSame(16, $returningMember->player->town_hall_level);
+        $this->assertDatabaseCount(Player::class, 3);
+        $this->assertDatabaseCount(ClanMembership::class, 3);
         $this->assertNotNull($clan->fresh()->members_synced_at);
     }
 
@@ -191,7 +200,61 @@ class MemberPanelTest extends TestCase
             ->post('/members/sync')
             ->assertSessionHasErrors('sync');
 
-        $this->assertDatabaseCount(Member::class, 0);
+        $this->assertDatabaseCount(Player::class, 0);
+        $this->assertDatabaseCount(ClanMembership::class, 0);
+    }
+
+    public function test_member_panel_only_displays_the_active_clan(): void
+    {
+        $primary = $this->clan();
+        $secondary = Clan::query()->create(['tag' => '#V9Y20']);
+        $status = $this->memberStatus(MemberStatusEnum::In);
+        $this->createMembership($primary, $status, '#PQLG2', 'Principal');
+        $this->createMembership($secondary, $status, '#QGRJ9', 'Secundário');
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
+            ->get('/members?status=all')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('members.data', 1)
+                ->where('members.data.0.name', 'Secundário')
+                ->where('memberStats.total', 1)
+                ->where('clan.id', $secondary->id));
+    }
+
+    public function test_member_sync_does_not_change_another_clan_memberships(): void
+    {
+        config([
+            'services.clash_of_clans.base_url' => 'https://api.clashofclans.test/v1',
+            'services.clash_of_clans.token' => 'api-token',
+            'services.clash_of_clans.demo_mode' => false,
+        ]);
+        $primary = $this->clan();
+        $secondary = Clan::query()->create(['tag' => '#V9Y20']);
+        $status = $this->memberStatus(MemberStatusEnum::In);
+        $secondaryMembership = $this->createMembership(
+            $secondary,
+            $status,
+            '#PQLG2',
+            'Secundário',
+        );
+        Http::fake([
+            'api.clashofclans.test/v1/clans/*' => Http::response([
+                'tag' => '#QGRJ2',
+                'memberList' => [],
+            ]),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $primary->id])
+            ->post('/members/sync')
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            MemberStatusEnum::In->value,
+            $secondaryMembership->fresh()->status->slug,
+        );
     }
 
     public function test_guest_can_not_access_or_sync_members(): void
@@ -216,5 +279,35 @@ class MemberPanelTest extends TestCase
     private function memberStatus(MemberStatusEnum $status): MemberStatus
     {
         return MemberStatus::query()->where('slug', $status->value)->sole();
+    }
+
+    private function clan(): Clan
+    {
+        return Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'is_default' => true,
+        ]);
+    }
+
+    private function createMembership(
+        Clan $clan,
+        MemberStatus $status,
+        string $tag,
+        string $name,
+        ?string $role = null,
+        ?int $townHallLevel = null,
+    ): ClanMembership {
+        $player = Player::query()->create([
+            'player_tag' => $tag,
+            'name' => $name,
+            'town_hall_level' => $townHallLevel,
+        ]);
+
+        return ClanMembership::query()->create([
+            'clan_id' => $clan->id,
+            'player_id' => $player->id,
+            'member_status_id' => $status->id,
+            'role' => $role,
+        ]);
     }
 }

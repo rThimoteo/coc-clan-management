@@ -9,6 +9,5 @@ readonly class Player
         public string $name,
         public string $clanTag,
         public ?string $clanRole,
-    ) {
-    }
+    ) {}
 }

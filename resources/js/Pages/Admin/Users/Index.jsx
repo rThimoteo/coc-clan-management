@@ -11,7 +11,7 @@ const roleLabels = {
     member: 'Membro',
 };
 
-const memberStatusLabels = {
+const membershipStatusLabels = {
     in: 'No clã',
     out: 'Fora do clã',
 };
@@ -19,14 +19,14 @@ const memberStatusLabels = {
 export default function Index({
     users,
     roles,
-    members,
+    players,
     permissions,
     filters,
 }) {
     const { auth, generatedAccess } = usePage().props;
     const [createOpen, setCreateOpen] = useState(false);
     const [linkingUser, setLinkingUser] = useState(null);
-    const [memberSearch, setMemberSearch] = useState('');
+    const [playerSearch, setPlayerSearch] = useState('');
     const [codeOpen, setCodeOpen] = useState(Boolean(generatedAccess));
     const [copied, setCopied] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
@@ -38,14 +38,18 @@ export default function Index({
         name: '',
         role_id: roles.find((role) => role.slug === 'leader')?.id ?? roles[0]?.id,
     });
-    const linkForm = useForm({ member_ids: [] });
+    const linkForm = useForm({ player_ids: [] });
     const roleForm = useForm({ role_id: null, confirm_admin: false });
-    const filteredMembers = members.filter((member) => {
-        const search = normalizeSearch(memberSearch);
+    const filteredPlayers = players.filter((player) => {
+        const search = normalizeSearch(playerSearch);
+        const clanIdentity = player.memberships
+            .map((membership) => `${membership.clan.name} ${membership.clan.tag}`)
+            .join(' ');
 
         return (
-            normalizeSearch(member.name).includes(search) ||
-            normalizeSearch(member.player_tag).includes(search)
+            normalizeSearch(player.name).includes(search) ||
+            normalizeSearch(player.player_tag).includes(search) ||
+            normalizeSearch(clanIdentity).includes(search)
         );
     });
 
@@ -63,17 +67,17 @@ export default function Index({
 
     const openMemberLink = (user) => {
         setLinkingUser(user);
-        setMemberSearch('');
+        setPlayerSearch('');
         linkForm.setData(
-            'member_ids',
-            user.members.map((member) => member.id),
+            'player_ids',
+            user.players.map((player) => player.id),
         );
         linkForm.clearErrors();
     };
 
     const saveMemberLinks = (event) => {
         event.preventDefault();
-        linkForm.put(route('admin.users.members.update', linkingUser.id), {
+        linkForm.put(route('admin.users.players.update', linkingUser.id), {
             preserveScroll: true,
             onSuccess: () => setLinkingUser(null),
         });
@@ -173,7 +177,7 @@ export default function Index({
                 <div>
                     <span>Contas do jogo vinculadas</span>
                     <strong>
-                        {members.filter((member) => member.user_id).length}
+                        {players.filter((player) => player.user_id).length}
                     </strong>
                 </div>
                 {permissions.createUsers && (
@@ -259,12 +263,16 @@ export default function Index({
                                         </div>
                                     </td>
                                     <td>
-                                        {user.members.length ? (
+                                        {user.players.length ? (
                                             <div className="linked-members">
-                                                {user.members.map((member) => (
-                                                    <span key={member.id}>
-                                                        {member.name}
-                                                        <small>{member.player_tag}</small>
+                                                {user.players.map((player) => (
+                                                    <span key={player.id}>
+                                                        {player.name}
+                                                        <small>
+                                                            {player.player_tag}
+                                                            {player.memberships.length > 0 &&
+                                                                ` · ${player.memberships.map((membership) => membership.clan.name ?? membership.clan.tag).join(', ')}`}
+                                                        </small>
                                                     </span>
                                                 ))}
                                             </div>
@@ -276,9 +284,9 @@ export default function Index({
                                     </td>
                                     <td>
                                         <div className="admin-user-actions">
-                                            {permissions.linkMembers && (
+                                            {permissions.linkPlayers && (
                                                 <button onClick={() => openMemberLink(user)}>
-                                                    Vincular membros
+                                                    Vincular contas
                                                 </button>
                                             )}
                                             {permissions.generateCodes &&
@@ -438,9 +446,9 @@ export default function Index({
                             disponíveis para um novo vínculo.
                         </p>
                         <div className="delete-user-impact">
-                            <strong>{deletingUser.members.length}</strong>
+                            <strong>{deletingUser.players.length}</strong>
                             <span>
-                                {deletingUser.members.length === 1
+                                {deletingUser.players.length === 1
                                     ? 'conta vinculada será liberada'
                                     : 'contas vinculadas serão liberadas'}
                             </span>
@@ -471,61 +479,82 @@ export default function Index({
                             <SearchIcon />
                             <input
                                 type="search"
-                                value={memberSearch}
+                                value={playerSearch}
                                 onChange={(event) =>
-                                    setMemberSearch(event.target.value)
+                                    setPlayerSearch(event.target.value)
                                 }
                                 placeholder="Buscar por nome ou player tag"
                                 autoFocus
                             />
                             <span>
-                                {filteredMembers.length}{' '}
-                                {filteredMembers.length === 1
+                                {filteredPlayers.length}{' '}
+                                {filteredPlayers.length === 1
                                     ? 'resultado'
                                     : 'resultados'}
                             </span>
                         </div>
                         <div className="link-members-list">
-                            {members.length === 0 ? (
+                            {players.length === 0 ? (
                                 <div className="link-members-empty">
                                     Sincronize os membros do clã primeiro.
                                 </div>
-                            ) : filteredMembers.length === 0 ? (
+                            ) : filteredPlayers.length === 0 ? (
                                 <div className="link-members-empty">
                                     Nenhum membro encontrado para essa busca.
                                 </div>
                             ) : (
-                                filteredMembers.map((member) => (
-                                    <label key={member.id}>
+                                filteredPlayers.map((player) => (
+                                    <label key={player.id}>
                                         <input
                                             type="checkbox"
-                                            checked={linkForm.data.member_ids.includes(member.id)}
+                                            checked={linkForm.data.player_ids.includes(player.id)}
                                             onChange={() =>
                                                 linkForm.setData(
-                                                    'member_ids',
+                                                    'player_ids',
                                                     toggleId(
-                                                        linkForm.data.member_ids,
-                                                        member.id,
+                                                        linkForm.data.player_ids,
+                                                        player.id,
                                                     ),
                                                 )
                                             }
                                         />
                                         <span>
-                                            <strong>{member.name}</strong>
+                                            <strong>{player.name}</strong>
                                             <small>
-                                                {member.player_tag} ·{' '}
-                                                {memberStatusLabels[member.status.slug]}
-                                                {member.user &&
-                                                member.user.id !== linkingUser.id
-                                                    ? ` · atualmente com ${member.user.name}`
+                                                {player.player_tag}
+                                                {player.town_hall_level
+                                                    ? ` · CV ${player.town_hall_level}`
+                                                    : ''}
+                                                {player.user &&
+                                                player.user.id !== linkingUser.id
+                                                    ? ` · atualmente com ${player.user.name}`
                                                     : ''}
                                             </small>
+                                            <span className="player-clan-memberships">
+                                                {player.memberships.length > 0
+                                                    ? player.memberships.map((membership) => (
+                                                          <small
+                                                              key={membership.id}
+                                                              className={`is-${membership.status.slug}`}
+                                                          >
+                                                              {membership.clan.name ??
+                                                                  membership.clan.tag}
+                                                              {' · '}
+                                                              {membershipStatusLabels[
+                                                                  membership.status.slug
+                                                              ]}
+                                                          </small>
+                                                      ))
+                                                    : (
+                                                          <small>Sem clã atual</small>
+                                                      )}
+                                            </span>
                                         </span>
                                     </label>
                                 ))
                             )}
                         </div>
-                        <InputError message={linkForm.errors.member_ids} className="mt-2" />
+                        <InputError message={linkForm.errors.player_ids} className="mt-2" />
                         <div className="modal-form-actions">
                             <button type="button" onClick={() => setLinkingUser(null)}>
                                 Cancelar

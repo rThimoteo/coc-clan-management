@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Clans\ActiveClanContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -40,6 +41,9 @@ class HandleInertiaRequests extends Middleware
                     'role' => $user->role->slug,
                 ] : null,
             ],
+            'clanContext' => $user
+                ? app(ActiveClanContext::class)->shared($request)
+                : ['active' => null, 'available' => []],
             'demoMode' => (bool) config('services.clash_of_clans.demo_mode'),
             'status' => fn () => $request->session()->get('status'),
             'syncSummary' => fn () => $request->session()->get('syncSummary'),

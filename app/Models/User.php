@@ -57,8 +57,8 @@ class User extends Authenticatable
         ], true);
     }
 
-    public function members(): HasMany
+    public function players(): HasMany
     {
-        return $this->hasMany(Member::class);
+        return $this->hasMany(Player::class);
     }
 }

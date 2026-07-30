@@ -1,7 +1,7 @@
 import FilterPopover from '@/Components/FilterPopover';
 import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 const statusLabels = {
@@ -245,6 +245,7 @@ export default function Index({
                                         onSort={sortMembers}
                                     />
                                     <th>Status</th>
+                                    <th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -267,6 +268,17 @@ export default function Index({
                                                 <i />
                                                 {statusLabels[member.status.slug]}
                                             </span>
+                                        </td>
+                                        <td className="war-action-cell">
+                                            <Link
+                                                className="war-details-link"
+                                                href={route(
+                                                    'members.show',
+                                                    member.id,
+                                                )}
+                                            >
+                                                Ver desempenho
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}

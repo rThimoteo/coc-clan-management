@@ -18,4 +18,17 @@ if (! config('services.clash_of_clans.demo_mode')) {
         ->dailyAt('03:15')
         ->timezone(config('app.schedule_timezone'))
         ->withoutOverlapping(30);
+
+    Schedule::command('cwl:sync')
+        ->dailyAt('03:30')
+        ->timezone(config('app.schedule_timezone'))
+        ->when(fn (): bool => now(config('app.schedule_timezone'))->day > 10)
+        ->withoutOverlapping(30);
+
+    Schedule::command('cwl:sync')
+        ->everyTwoHours()
+        ->between('01:00', '23:00')
+        ->timezone(config('app.schedule_timezone'))
+        ->when(fn (): bool => now(config('app.schedule_timezone'))->day <= 10)
+        ->withoutOverlapping(30);
 }

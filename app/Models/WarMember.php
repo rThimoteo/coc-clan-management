@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'war_id',
+    'player_id',
     'side',
     'player_tag',
     'name',
@@ -20,5 +21,10 @@ class WarMember extends Model
     public function war(): BelongsTo
     {
         return $this->belongsTo(War::class);
+    }
+
+    public function player(): BelongsTo
+    {
+        return $this->belongsTo(Player::class);
     }
 }

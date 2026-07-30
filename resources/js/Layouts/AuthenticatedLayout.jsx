@@ -1,16 +1,18 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 
 const navigation = [
     { label: 'Visão geral', route: 'dashboard', icon: GridIcon },
     { label: 'Membros', route: 'members.index', icon: MembersIcon },
     { label: 'Guerras', route: 'wars.index', icon: WarsIcon },
+    { label: 'Liga de Clãs', route: 'cwl.index', icon: LeagueIcon },
 ];
 
 export default function AuthenticatedLayout({ header, eyebrow, children }) {
-    const { auth } = usePage().props;
+    const { auth, clanContext } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [switchingClan, setSwitchingClan] = useState(false);
     const profileMenu = useRef(null);
 
     useEffect(() => {
@@ -85,13 +87,13 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                             </Link>
                             {auth.user.role === 'admin' && (
                                 <Link
-                                    href={route('admin.clan.edit')}
-                                    className={`app-nav-item ${route().current('admin.clan.*') ? 'is-active' : ''}`}
+                                    href={route('admin.clans.index')}
+                                    className={`app-nav-item ${route().current('admin.clans.*') ? 'is-active' : ''}`}
                                     onClick={() => setSidebarOpen(false)}
                                 >
                                     <ShieldIcon />
                                     <span>Configurar clã</span>
-                                    {route().current('admin.clan.*') && (
+                                    {route().current('admin.clans.*') && (
                                         <span className="app-nav-pip" />
                                     )}
                                 </Link>
@@ -124,6 +126,41 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                         <i />
                         <strong>{header}</strong>
                     </div>
+
+                    <label className="app-clan-switcher">
+                        <span>Clã ativo</span>
+                        <select
+                            value={clanContext.active?.id ?? ''}
+                            disabled={
+                                switchingClan ||
+                                clanContext.available.length === 0
+                            }
+                            onChange={(event) => {
+                                setSwitchingClan(true);
+                                router.put(
+                                    route('clan-context.update'),
+                                    { clan_id: Number(event.target.value) },
+                                    {
+                                        preserveScroll: false,
+                                        preserveState: false,
+                                        onFinish: () =>
+                                            setSwitchingClan(false),
+                                    },
+                                );
+                            }}
+                            aria-label="Selecionar clã ativo"
+                        >
+                            {clanContext.available.length === 0 && (
+                                <option value="">Nenhum clã</option>
+                            )}
+                            {clanContext.available.map((clan) => (
+                                <option key={clan.id} value={clan.id}>
+                                    {clan.name ?? clan.tag}
+                                    {clan.is_default ? ' · padrão' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
 
                     <div className="app-profile-menu" ref={profileMenu}>
                         <button
@@ -189,6 +226,10 @@ function UsersIcon() {
 
 function WarsIcon() {
     return <IconPath d="m14.5 4.5 5 5M16 3l5 5-8.5 8.5-5-5L16 3ZM9.5 14.5 4 20M4 15v5h5M9.5 4.5l-5 5M8 3 3 8l4.5 4.5" />;
+}
+
+function LeagueIcon() {
+    return <IconPath d="M8 4h8v3a4 4 0 0 1-8 0V4ZM6 5H3v1a4 4 0 0 0 5 3.87M18 5h3v1a4 4 0 0 1-5 3.87M12 11v5M8 20h8M9 16h6" />;
 }
 
 function ShieldIcon() {
