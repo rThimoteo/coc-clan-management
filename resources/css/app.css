@@ -2950,10 +2950,30 @@
     background: rgba(41, 37, 36, 0.45);
 }
 
+.link-members-list label.is-selected {
+    background: rgba(245, 158, 11, 0.08);
+    box-shadow: inset 3px 0 #f59e0b;
+}
+
+.link-members-list label.is-selected:hover {
+    background: rgba(245, 158, 11, 0.12);
+}
+
 .link-members-list input {
     border-color: #57534e;
     background: #141210;
     color: #f59e0b;
+    accent-color: #f59e0b;
+}
+
+.link-members-list input:checked {
+    border-color: #f59e0b;
+    background-color: #f59e0b;
+}
+
+.link-members-list label:focus-within {
+    outline: 2px solid rgba(245, 158, 11, 0.65);
+    outline-offset: -2px;
 }
 
 .link-members-list strong,

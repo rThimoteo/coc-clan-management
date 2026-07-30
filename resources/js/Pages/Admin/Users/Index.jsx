@@ -504,7 +504,16 @@ export default function Index({
                                 </div>
                             ) : (
                                 filteredPlayers.map((player) => (
-                                    <label key={player.id}>
+                                    <label
+                                        key={player.id}
+                                        className={
+                                            linkForm.data.player_ids.includes(
+                                                player.id,
+                                            )
+                                                ? 'is-selected'
+                                                : undefined
+                                        }
+                                    >
                                         <input
                                             type="checkbox"
                                             checked={linkForm.data.player_ids.includes(player.id)}
