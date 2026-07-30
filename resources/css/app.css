@@ -1444,6 +1444,11 @@
     font-weight: 700;
 }
 
+.cwl-list-panel .members-empty-mark {
+    font-size: 1rem;
+    letter-spacing: 0.16em;
+}
+
 .members-empty h3 {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 1rem;
