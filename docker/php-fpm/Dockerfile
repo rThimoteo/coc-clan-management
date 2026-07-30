@@ -29,6 +29,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY docker/php-fpm/bashrc /etc/bash/bashrc
 
+RUN apk add --no-cache --virtual .php-build-deps $PHPIZE_DEPS \
+    && pecl install pcov \
+    && docker-php-ext-enable pcov \
+    && apk del .php-build-deps
+
 RUN usermod -u ${WWWUSER} www-data \
     && groupmod -g ${WWWGROUP} www-data
 

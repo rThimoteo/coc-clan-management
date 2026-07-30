@@ -23,7 +23,7 @@ export default function Index({
     filters,
     filterOptions,
 }) {
-    const { auth, errors, status, syncSummary } = usePage().props;
+    const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const [filterForm, setFilterForm] = useState({
         search: filters.search ?? '',
@@ -130,7 +130,8 @@ export default function Index({
                             o histórico de quem deixou o clã.
                         </p>
                     </div>
-                    {['admin', 'leader'].includes(auth.user.role) && (
+                    {!demoMode &&
+                        ['admin', 'leader'].includes(auth.user.role) && (
                         <button
                             className="sync-button"
                             onClick={sync}
@@ -143,6 +144,13 @@ export default function Index({
                         </button>
                     )}
                 </header>
+
+                {demoMode && (
+                    <div className="members-empty-warning">
+                        Modo demo: os dados desta tela são demonstrativos e a
+                        sincronização com o jogo está desativada.
+                    </div>
+                )}
 
                 {!clan && (
                     <div className="members-empty-warning">
@@ -208,8 +216,9 @@ export default function Index({
                         <div className="members-empty-mark">00</div>
                         <h3>Nenhum membro sincronizado.</h3>
                         <p>
-                            Use o botão acima para importar a formação atual do
-                            clã.
+                            {demoMode
+                                ? 'Execute os seeders para carregar os dados de demonstração.'
+                                : 'Use o botão acima para importar a formação atual do clã.'}
                         </p>
                     </div>
                 ) : (

@@ -15,6 +15,12 @@ class SyncWars extends Command
 
     public function handle(WarSyncService $warSync): int
     {
+        if (config('services.clash_of_clans.demo_mode')) {
+            $this->warn('A sincronização de guerras não está disponível no modo demo.');
+
+            return self::SUCCESS;
+        }
+
         try {
             $summary = $warSync->sync();
         } catch (Throwable $exception) {

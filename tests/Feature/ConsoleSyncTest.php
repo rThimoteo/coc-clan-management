@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\Members\MemberSyncService;
 use App\Services\Wars\WarSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Tests\TestCase;
 
 class ConsoleSyncTest extends TestCase
@@ -49,5 +50,24 @@ class ConsoleSyncTest extends TestCase
             ->expectsOutputToContain('members:sync')
             ->expectsOutputToContain('wars:sync')
             ->assertSuccessful();
+    }
+
+    public function test_sync_commands_report_service_failures(): void
+    {
+        $this->mock(MemberSyncService::class)
+            ->shouldReceive('sync')
+            ->once()
+            ->andThrow(new RuntimeException('API de membros indisponível.'));
+        $this->artisan('members:sync')
+            ->expectsOutput('API de membros indisponível.')
+            ->assertFailed();
+
+        $this->mock(WarSyncService::class)
+            ->shouldReceive('sync')
+            ->once()
+            ->andThrow(new RuntimeException('API de guerras indisponível.'));
+        $this->artisan('wars:sync')
+            ->expectsOutput('API de guerras indisponível.')
+            ->assertFailed();
     }
 }

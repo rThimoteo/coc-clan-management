@@ -15,6 +15,12 @@ class SyncMembers extends Command
 
     public function handle(MemberSyncService $memberSync): int
     {
+        if (config('services.clash_of_clans.demo_mode')) {
+            $this->warn('A sincronização de membros não está disponível no modo demo.');
+
+            return self::SUCCESS;
+        }
+
         try {
             $summary = $memberSync->sync();
         } catch (Throwable $exception) {

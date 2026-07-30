@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
                     'role' => $user->role->slug,
                 ] : null,
             ],
+            'demoMode' => (bool) config('services.clash_of_clans.demo_mode'),
             'status' => fn () => $request->session()->get('status'),
             'syncSummary' => fn () => $request->session()->get('syncSummary'),
             'generatedAccess' => fn () => $request->session()->get('generatedAccess'),

@@ -64,7 +64,7 @@ consultar posteriormente um código já criado.
 - Docker
 - Docker Compose
 
-### Instalação
+### Preparação comum
 
 Clone o repositório e entre no diretório:
 
@@ -86,17 +86,6 @@ não exista:
 touch database/database.sqlite
 ```
 
-Antes de iniciar, substitua o código administrativo de exemplo por um valor
-longo e secreto:
-
-```env
-ADMIN_ACCESS_CODE=seu-codigo-inicial-seguro
-```
-
-As migrations executam os seeders necessários para criar os papéis, status e o
-acesso administrativo inicial. O código administrativo recebe o papel `admin`
-e não é salvo em texto puro.
-
 Construa e inicie os containers:
 
 ```bash
@@ -104,33 +93,56 @@ docker compose build
 docker compose up -d
 ```
 
-Instale as dependências PHP, gere a chave da aplicação e prepare o banco:
+Instale as dependências PHP e gere a chave da aplicação:
 
 ```bash
 docker compose exec php-fpm composer install
 docker compose exec php-fpm php artisan key:generate
-docker compose exec php-fpm php artisan migrate
 ```
 
 O container Node instala as dependências e inicia o Vite automaticamente.
 
-Acesse:
+Depois, escolha um dos modos de execução abaixo. Em ambos os casos a aplicação
+fica disponível em:
 
 ```text
 http://localhost:8081
 ```
 
-## Modo de demonstração da API
+## Rodando no modo normal
 
-O `.env.example` vem preparado para usar os serviços do Clash of Clans sem
-criar uma chave na API:
+Crie uma chave no
+[portal de desenvolvedores do Clash of Clans](https://developer.clashofclans.com/)
+e configure o `.env`:
 
 ```env
-APP_ENV=local
-CLASH_OF_CLANS_DEMO_MODE=true
+ADMIN_ACCESS_CODE=seu-codigo-inicial-seguro
+CLASH_OF_CLANS_API_URL=https://api.clashofclans.com/v1
+CLASH_OF_CLANS_API_TOKEN=seu_token
+CLASH_OF_CLANS_DEMO_MODE=false
 ```
 
-## Sincronização automática
+O token da API deve pertencer a uma chave que autorize o IP público de onde a
+aplicação fará as requisições. Prepare o banco:
+
+```bash
+docker compose exec php-fpm php artisan config:clear
+docker compose exec php-fpm php artisan migrate --seed
+docker compose restart scheduler
+```
+
+Entre usando o valor de `ADMIN_ACCESS_CODE` e acesse **Administração →
+Configurar clã**. Informe a tag encontrada no perfil do clã, com ou sem `#`;
+por exemplo, `#2Q8L9Y0JP`. O sistema consulta a API e salva o nome e o emblema
+correspondentes.
+
+Depois disso, membros e guerras podem ser sincronizados pelos respectivos
+painéis. O histórico de guerras do clã precisa estar público no Clash of Clans.
+A sincronização guarda os resumos do war log e captura os detalhes da guerra
+atual ou recém-encerrada enquanto a API ainda os disponibiliza. Entradas
+agregadas sem tag de oponente não são persistidas.
+
+### Sincronização automática
 
 O serviço Docker `scheduler` executa as sincronizações todos os dias no fuso
 `America/Sao_Paulo`:
@@ -149,32 +161,48 @@ SCHEDULE_TIMEZONE=America/Sao_Paulo
 O serviço inicia junto com `docker compose up -d` e usa
 `restart: unless-stopped`.
 
-## Usando a API oficial
+## Rodando no modo demo
 
-Crie uma chave no
-[portal de desenvolvedores do Clash of Clans](https://developer.clashofclans.com/)
-e configure o `.env`:
+O modo demo não precisa de chave da API. Configure o `.env`:
 
 ```env
-CLASH_OF_CLANS_API_URL=https://api.clashofclans.com/v1
-CLASH_OF_CLANS_API_TOKEN=seu_token
-CLASH_OF_CLANS_DEMO_MODE=false
+ADMIN_ACCESS_CODE=demo-admin
+CLASH_OF_CLANS_API_TOKEN=
+CLASH_OF_CLANS_DEMO_MODE=true
 ```
 
-Depois de alterar o ambiente:
+Crie o banco e carregue os dados demonstrativos:
 
 ```bash
 docker compose exec php-fpm php artisan config:clear
+docker compose exec php-fpm php artisan migrate:fresh --seed
+docker compose restart scheduler
 ```
 
-A tag do clã não é configurada no `.env`. Depois de entrar com o acesso
-administrativo, use **Administração → Configurar clã**. O sistema valida a tag
-na API antes de salvá-la.
+O seeder cria um clã, membros ativos e antigos, usuários vinculados e um
+histórico de guerras com alguns detalhes de ataques e defesas. Ele também pode
+ser reaplicado sem duplicar esses dados:
 
-O histórico de guerras do clã precisa estar público no Clash of Clans. A
-sincronização guarda os resumos do war log e captura os detalhes da guerra
-atual ou recém-encerrada enquanto a API ainda os disponibiliza. Entradas
-agregadas sem tag de oponente não são persistidas.
+```bash
+docker compose exec php-fpm php artisan db:seed
+```
+
+Use `demo-admin` para entrar como administrador. Também existem acessos de
+demonstração para validar as diferentes permissões:
+
+| Papel | Código |
+| --- | --- |
+| Líder | `111111` |
+| Colíder | `222222` |
+| Membro | `333333` |
+
+Todas as funcionalidades baseadas nos dados locais continuam disponíveis no
+modo demo, incluindo filtros, detalhes de guerra e administração de acessos.
+As rotas, botões, comandos e agendamentos de sincronização ficam desativados,
+preservando os dados carregados pelos seeders.
+
+> O modo demo contém códigos conhecidos e deve ser usado somente para
+> demonstração ou desenvolvimento.
 
 ## Comandos úteis
 
@@ -200,7 +228,7 @@ docker compose exec php-fpm php artisan schedule:list
 Recriar o banco local:
 
 ```bash
-docker compose exec php-fpm php artisan migrate:fresh
+docker compose exec php-fpm php artisan migrate:fresh --seed
 ```
 
 Compilar o frontend:

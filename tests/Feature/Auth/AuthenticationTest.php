@@ -9,6 +9,8 @@ use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Lockout;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -47,6 +49,23 @@ class AuthenticationTest extends TestCase
         ])->assertSessionHasErrors('access_code');
 
         $this->assertGuest();
+    }
+
+    public function test_login_is_rate_limited_after_repeated_invalid_codes(): void
+    {
+        Event::fake([Lockout::class]);
+        User::factory()->create(['access_code' => 'valid-access-code']);
+
+        foreach (range(1, 5) as $attempt) {
+            $this->post('/login', ['access_code' => 'invalid-access-code'])
+                ->assertSessionHasErrors('access_code');
+        }
+
+        $this->post('/login', ['access_code' => 'valid-access-code'])
+            ->assertSessionHasErrors('access_code');
+
+        $this->assertGuest();
+        Event::assertDispatched(Lockout::class);
     }
 
     public function test_admin_seeder_creates_the_initial_admin_access(): void

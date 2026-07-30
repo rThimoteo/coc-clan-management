@@ -14,10 +14,6 @@ class ClashOfClansService
      */
     public function clanWarLog(string $clanTag): array
     {
-        if ($this->isDemoMode()) {
-            return [$this->demoWar()];
-        }
-
         $response = $this->clanEndpointResponse(
             $this->normalizeTag($clanTag),
             'warlog',
@@ -41,46 +37,6 @@ class ClashOfClansService
      */
     public function currentClanWar(string $clanTag): ?array
     {
-        if ($this->isDemoMode()) {
-            return [
-                ...$this->demoWar(),
-                'state' => 'warEnded',
-                'preparationStartTime' => '20260720T180000.000Z',
-                'startTime' => '20260721T180000.000Z',
-                'attacksPerMember' => 2,
-                'clan' => [
-                    ...$this->demoWar()['clan'],
-                    'members' => [
-                        [
-                            'tag' => '#PQLG2',
-                            'name' => 'Chefe de Demonstração',
-                            'mapPosition' => 1,
-                            'townhallLevel' => 16,
-                            'opponentAttacks' => 1,
-                            'attacks' => [
-                                ['attackerTag' => '#PQLG2', 'defenderTag' => '#V9Y20', 'stars' => 3, 'destructionPercentage' => 100, 'order' => 1, 'duration' => 155],
-                            ],
-                        ],
-                    ],
-                ],
-                'opponent' => [
-                    ...$this->demoWar()['opponent'],
-                    'members' => [
-                        [
-                            'tag' => '#V9Y20',
-                            'name' => 'Rival de Demonstração',
-                            'mapPosition' => 1,
-                            'townhallLevel' => 16,
-                            'opponentAttacks' => 1,
-                            'attacks' => [
-                                ['attackerTag' => '#V9Y20', 'defenderTag' => '#PQLG2', 'stars' => 2, 'destructionPercentage' => 84.5, 'order' => 2, 'duration' => 172],
-                            ],
-                        ],
-                    ],
-                ],
-            ];
-        }
-
         $response = $this->clanEndpointResponse(
             $this->normalizeTag($clanTag),
             'currentwar',
@@ -105,13 +61,6 @@ class ClashOfClansService
     public function clanMembers(string $clanTag): array
     {
         $clanTag = $this->normalizeTag($clanTag);
-
-        if ($this->isDemoMode()) {
-            return [
-                new ClanMember('#PQLG2', 'Chefe de Demonstração', 'leader', 16),
-                new ClanMember('#QGRJ9', 'Guerreiro de Demonstração', 'member', 15),
-            ];
-        }
 
         $response = $this->clanResponse($clanTag);
 
@@ -286,36 +235,4 @@ class ClashOfClansService
         }
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function demoWar(): array
-    {
-        return [
-            'result' => 'win',
-            'endTime' => '20260722T180000.000Z',
-            'teamSize' => 15,
-            'attacksPerMember' => 2,
-            'battleModifier' => 'none',
-            'clan' => [
-                'tag' => '#QGRJ2',
-                'name' => 'Clã de Demonstração',
-                'clanLevel' => 20,
-                'attacks' => 27,
-                'stars' => 41,
-                'destructionPercentage' => 96.4,
-                'expEarned' => 250,
-                'badgeUrls' => ['medium' => null],
-            ],
-            'opponent' => [
-                'tag' => '#V9Y20',
-                'name' => 'Clã Rival',
-                'clanLevel' => 18,
-                'attacks' => 26,
-                'stars' => 37,
-                'destructionPercentage' => 89.2,
-                'badgeUrls' => ['medium' => null],
-            ],
-        ];
-    }
 }
