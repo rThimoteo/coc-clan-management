@@ -16,6 +16,13 @@ const membershipStatusLabels = {
     out: 'Fora do clã',
 };
 
+const cutBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const actionButton =
+    'border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const cutPanel =
+    '[clip-path:polygon(0_0,calc(100%-0.55rem)_0,100%_0.55rem,100%_100%,0.55rem_100%,0_calc(100%-0.55rem))]';
+
 export default function Index({
     users,
     roles,
@@ -169,19 +176,22 @@ export default function Index({
         <AuthenticatedLayout header="Usuários" eyebrow="ADMINISTRAÇÃO DE ACESSOS">
             <Head title="Usuários" />
 
-            <section className="admin-users-summary">
-                <div>
-                    <span>Acessos cadastrados</span>
-                    <strong>{users.total}</strong>
+            <section className={`grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-[repeat(2,minmax(0,1fr))_auto] ${cutPanel}`}>
+                <div className="bg-zinc-900/80 px-4 py-3">
+                    <span className="text-xs text-zinc-500">Acessos cadastrados</span>
+                    <strong className="mt-1 block font-display text-2xl font-black text-zinc-100">{users.total}</strong>
                 </div>
-                <div>
-                    <span>Contas do jogo vinculadas</span>
-                    <strong>
+                <div className="bg-zinc-900/80 px-4 py-3">
+                    <span className="text-xs text-zinc-500">Contas do jogo vinculadas</span>
+                    <strong className="mt-1 block font-display text-2xl font-black text-zinc-100">
                         {players.filter((player) => player.user_id).length}
                     </strong>
                 </div>
                 {permissions.createUsers && (
-                    <button onClick={() => setCreateOpen(true)}>
+                    <button
+                        className={`inline-flex items-center justify-center gap-2 border border-amber-400/40 bg-amber-500 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:fill-none [&>svg]:stroke-current ${cutPanel}`}
+                        onClick={() => setCreateOpen(true)}
+                    >
                         <PlusIcon />
                         Criar novo usuário
                     </button>
@@ -251,12 +261,19 @@ export default function Index({
                                         <strong>{user.name}</strong>
                                     </td>
                                     <td>
-                                        <div className="user-role-control">
-                                            <span className={`user-role is-${user.role.slug}`}>
+                                        <div className="flex flex-col items-start gap-1.5">
+                                            <span className={`${cutBadge} ${
+                                                user.role.slug === 'admin'
+                                                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                                                    : 'border-white/15 bg-zinc-900 text-zinc-300'
+                                            }`}>
                                                 {roleLabels[user.role.slug] ?? user.role.name}
                                             </span>
                                             {canEditRole(user) && (
-                                                <button onClick={() => openRoleEditor(user)}>
+                                                <button
+                                                    className="text-xs font-bold text-zinc-400 underline decoration-zinc-700 underline-offset-4 hover:text-amber-300 hover:decoration-amber-500"
+                                                    onClick={() => openRoleEditor(user)}
+                                                >
                                                     Alterar papel
                                                 </button>
                                             )}
@@ -264,11 +281,14 @@ export default function Index({
                                     </td>
                                     <td>
                                         {user.players.length ? (
-                                            <div className="linked-members">
+                                            <div className="flex max-w-sm flex-wrap gap-1.5">
                                                 {user.players.map((player) => (
-                                                    <span key={player.id}>
+                                                    <span
+                                                        className={`${cutBadge} border-white/15 bg-zinc-900 text-zinc-300`}
+                                                        key={player.id}
+                                                    >
                                                         {player.name}
-                                                        <small>
+                                                        <small className="mt-0.5 block text-[0.68rem] text-zinc-600">
                                                             {player.player_tag}
                                                             {player.memberships.length > 0 &&
                                                                 ` · ${player.memberships.map((membership) => membership.clan.name ?? membership.clan.tag).join(', ')}`}
@@ -277,22 +297,22 @@ export default function Index({
                                                 ))}
                                             </div>
                                         ) : (
-                                            <span className="no-linked-members">
+                                            <span className="text-sm text-zinc-600">
                                                 Nenhuma conta
                                             </span>
                                         )}
                                     </td>
                                     <td>
-                                        <div className="admin-user-actions">
+                                        <div className="flex flex-wrap gap-1.5">
                                             {permissions.linkPlayers && (
-                                                <button onClick={() => openMemberLink(user)}>
+                                                <button className={actionButton} onClick={() => openMemberLink(user)}>
                                                     Vincular contas
                                                 </button>
                                             )}
                                             {permissions.generateCodes &&
                                                 user.id !== auth.user.id && (
                                                     <button
-                                                        className="is-warning"
+                                                        className={`${actionButton} border-amber-400/35 text-amber-300`}
                                                         onClick={() => regenerate(user)}
                                                     >
                                                         Gerar código de acesso
@@ -302,7 +322,7 @@ export default function Index({
                                                 user.id !== auth.user.id &&
                                                 user.role.slug !== 'admin' && (
                                                     <button
-                                                        className="is-danger"
+                                                        className={`${actionButton} border-rose-400/40 bg-rose-600 text-white hover:bg-rose-500`}
                                                         onClick={() => setDeletingUser(user)}
                                                     >
                                                         Excluir conta

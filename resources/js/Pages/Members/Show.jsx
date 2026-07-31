@@ -14,6 +14,13 @@ const statusLabels = {
     out: 'Fora do clã',
 };
 
+const cutBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const cutPanel =
+    'border border-white/10 bg-zinc-900/80 [clip-path:polygon(0_0,calc(100%-0.55rem)_0,100%_0.55rem,100%_100%,0.55rem_100%,0_calc(100%-0.55rem))]';
+const cutInput =
+    'min-h-10 w-full border border-white/15 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/10 [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+
 export default function Show({
     membership,
     metrics,
@@ -38,17 +45,17 @@ export default function Show({
         >
             <Head title={`Desempenho · ${player.name}`} />
 
-            <Link className="war-back-link" href={route('members.index')}>
+            <Link className="text-sm font-bold text-zinc-500 hover:text-amber-300" href={route('members.index')}>
                 ← Voltar para membros
             </Link>
 
-            <section className="player-performance-hero">
-                <div className="player-performance-identity">
-                    <span>CV {player.town_hall_level ?? '—'}</span>
+            <section className={`${cutPanel} mt-3 flex flex-col gap-5 p-5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between`}>
+                <div className="flex items-center gap-4">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center border border-amber-400/30 bg-amber-400/10 text-xs font-black text-amber-300 [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]">CV {player.town_hall_level ?? '—'}</span>
                     <div>
-                        <small>{player.player_tag}</small>
-                        <h2>{player.name}</h2>
-                        <p>
+                        <small className="text-xs tracking-[0.08em] text-zinc-500">{player.player_tag}</small>
+                        <h2 className="mt-0.5 font-display text-2xl font-black text-zinc-100">{player.name}</h2>
+                        <p className="mt-0.5 text-sm leading-6 text-zinc-500">
                             {roleLabels[membership.role] ??
                                 membership.role ??
                                 'Sem cargo'}{' '}
@@ -56,10 +63,11 @@ export default function Show({
                         </p>
                     </div>
                 </div>
-                <div className="player-performance-filters">
+                <div className="grid gap-2 sm:grid-cols-2 min-[900px]:w-[min(26rem,45%)]">
                     <label>
-                        <span>Tipo</span>
+                        <span className="mb-1 block text-[0.66rem] font-black uppercase tracking-[0.14em] text-zinc-500">Tipo</span>
                         <select
+                            className={cutInput}
                             value={filters.type}
                             onChange={(event) =>
                                 applyFilter('type', event.target.value)
@@ -71,8 +79,9 @@ export default function Show({
                         </select>
                     </label>
                     <label>
-                        <span>Janela</span>
+                        <span className="mb-1 block text-[0.66rem] font-black uppercase tracking-[0.14em] text-zinc-500">Janela</span>
                         <select
+                            className={cutInput}
                             value={filters.window}
                             onChange={(event) =>
                                 applyFilter('window', event.target.value)
@@ -87,7 +96,7 @@ export default function Show({
                 </div>
             </section>
 
-            <section className="player-metric-grid">
+            <section className="mt-3 grid gap-3 sm:grid-cols-2 min-[900px]:grid-cols-5">
                 <MetricCard
                     index="01"
                     label="Ataques utilizados"
@@ -130,9 +139,9 @@ export default function Show({
                         <p className="section-kicker">TRAJETÓRIA</p>
                         <h2>Destruição por guerra</h2>
                     </div>
-                    <div className="player-chart-legend">
-                        <span className="is-offense">Ataques</span>
-                        <span className="is-defense">Defesas</span>
+                    <div className="flex gap-3 text-xs text-zinc-500">
+                        <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-amber-500">Ataques</span>
+                        <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-red-500">Defesas</span>
                     </div>
                 </header>
                 {series.length === 0 ? (
@@ -170,12 +179,12 @@ export default function Show({
 function MetricCard({ index, label, value, note, defensive = false }) {
     return (
         <article
-            className={`player-performance-metric ${defensive ? 'is-defensive' : ''}`}
+            className={`${cutPanel} relative overflow-hidden p-4`}
         >
-            <span>{index}</span>
-            <p>{label}</p>
-            <strong>{value}</strong>
-            <small>{note}</small>
+            <span className="absolute right-3 top-2 font-mono text-xs text-zinc-700">{index}</span>
+            <p className="text-xs text-zinc-500">{label}</p>
+            <strong className={`mt-1 block font-display text-2xl font-black ${defensive ? 'text-rose-300' : 'text-amber-300'}`}>{value}</strong>
+            <small className="mt-1 block text-xs text-zinc-600">{note}</small>
         </article>
     );
 }
@@ -339,7 +348,11 @@ function HistoryTable({
                                     </td>
                                     <td>
                                         <span
-                                            className={`player-war-type is-${attack.war.type}`}
+                                            className={`${cutBadge} ${
+                                                attack.war.type === 'cwl'
+                                                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                                                    : 'border-white/15 bg-zinc-900 text-zinc-300'
+                                            }`}
                                         >
                                             {attack.war.type === 'cwl'
                                                 ? 'CWL'
@@ -350,7 +363,7 @@ function HistoryTable({
                                         <code>{attack[targetField]}</code>
                                     </td>
                                     <td>
-                                        <span className="player-stars">
+                                        <span className="font-black text-amber-300">
                                             {attack.stars} ★
                                         </span>
                                     </td>
@@ -375,8 +388,8 @@ function HistoryTable({
 
 function PerformanceEmpty({ children }) {
     return (
-        <div className="player-performance-empty">
-            <span>—</span>
+        <div className="flex items-center gap-3 px-4 py-5 text-sm leading-6 text-zinc-500">
+            <span className="text-2xl text-zinc-800">—</span>
             <p>{children}</p>
         </div>
     );

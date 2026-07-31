@@ -6,6 +6,10 @@ export default function LiveWarCountdown({
     label = 'TERMINA EM',
     expiredLabel = 'Encerrando...',
 }) {
+    const classes = compact
+        ? 'mt-1 inline-flex text-sm font-black uppercase tracking-[0.12em] text-zinc-400'
+        : 'inline-grid gap-1 font-display text-amber-300';
+
     const [remaining, setRemaining] = useState(() =>
         remainingSeconds(endTime),
     );
@@ -22,7 +26,7 @@ export default function LiveWarCountdown({
 
     if (remaining <= 0) {
         return (
-            <span className={`live-war-countdown ${compact ? 'is-compact' : ''}`}>
+            <span className={classes}>
                 {expiredLabel}
             </span>
         );
@@ -37,12 +41,16 @@ export default function LiveWarCountdown({
 
     return (
         <time
-            className={`live-war-countdown ${compact ? 'is-compact' : ''}`}
+            className={classes}
             dateTime={new Date(endTime).toISOString()}
             aria-label={`${hours} horas, ${minutes} minutos e ${seconds} segundos restantes`}
         >
-            {!compact && <small>{label}</small>}
-            <strong>{formatted}</strong>
+            {!compact && (
+                <small className="font-sans text-[0.66rem] font-black uppercase tracking-[0.16em] text-zinc-500">
+                    {label}
+                </small>
+            )}
+            <strong className={compact ? undefined : 'text-2xl font-black'}>{formatted}</strong>
         </time>
     );
 }
