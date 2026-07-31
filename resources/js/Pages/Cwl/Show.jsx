@@ -8,6 +8,8 @@ const stateLabels = {
 };
 
 const CWL_ROUNDS = 7;
+const stateBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 
 export default function Show({ clan, league }) {
     return (
@@ -17,7 +19,7 @@ export default function Show({ clan, league }) {
         >
             <Head title={`CWL ${formatSeason(league.season)}`} />
 
-            <Link className="war-back-link" href={route('cwl.index')}>
+            <Link className="text-sm font-bold text-zinc-500 hover:text-amber-300" href={route('cwl.index')}>
                 ← Voltar para temporadas
             </Link>
 
@@ -29,12 +31,12 @@ export default function Show({ clan, league }) {
                         </p>
                         <h2>{clan.name ?? clan.tag}</h2>
                     </div>
-                    <div className={`cwl-state is-${league.state}`}>
+                    <div className={`${stateBadge} ${league.state === 'inWar' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : league.state === 'preparation' ? 'border-amber-400/30 bg-amber-400/10 text-amber-300' : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'}`}>
                         {stateLabels[league.state] ?? league.state}
                     </div>
                 </header>
 
-                <div className="cwl-season-meta">
+                <div className="grid gap-px bg-white/10 text-sm text-zinc-500 sm:grid-cols-4 [&>span]:bg-zinc-900/80 [&>span]:p-4 [&_strong]:mr-1.5 [&_strong]:font-display [&_strong]:text-xl [&_strong]:font-black [&_strong]:text-amber-300">
                     <span>
                         <strong>{league.participants.length}</strong>
                         clãs

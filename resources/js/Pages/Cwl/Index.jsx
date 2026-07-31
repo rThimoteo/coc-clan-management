@@ -9,6 +9,10 @@ const stateLabels = {
 };
 
 const CWL_ROUNDS = 7;
+const detailsLink =
+    'inline-flex border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const stateBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 
 export default function Index({ clan, leagues, leagueStats }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
@@ -103,7 +107,7 @@ export default function Index({ clan, leagues, leagueStats }) {
 
                 {leagues.data.length === 0 ? (
                     <div className="members-empty">
-                        <div className="members-empty-mark">0/7</div>
+                        <div className="members-empty-mark">SEM DADOS</div>
                         <h3>Nenhuma temporada registrada.</h3>
                         <p>
                             Sincronize a CWL para importar os resumos
@@ -139,7 +143,7 @@ export default function Index({ clan, leagues, leagueStats }) {
                                         </td>
                                         <td>
                                             <span
-                                                className={`cwl-state is-${league.state}`}
+                                                className={`${stateBadge} ${league.state === 'inWar' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : league.state === 'preparation' ? 'border-amber-400/30 bg-amber-400/10 text-amber-300' : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'}`}
                                             >
                                                 {stateLabels[league.state] ??
                                                     league.state}
@@ -170,7 +174,7 @@ export default function Index({ clan, leagues, leagueStats }) {
                                         <td className="war-action-cell">
                                             {league.rounds_count > 0 && (
                                                 <Link
-                                                    className="war-details-link"
+                                                    className={detailsLink}
                                                     href={route(
                                                         'cwl.show',
                                                         league.id,
