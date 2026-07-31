@@ -107,7 +107,7 @@ export default function Index({ clan, leagues, leagueStats }) {
 
                 {leagues.data.length === 0 ? (
                     <div className="members-empty">
-                        <div className="members-empty-mark">0/7</div>
+                        <div className="members-empty-mark">SEM DADOS</div>
                         <h3>Nenhuma temporada registrada.</h3>
                         <p>
                             Sincronize a CWL para importar os resumos
