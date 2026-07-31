@@ -1,6 +1,7 @@
 import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 const roleLabels = {
     leader: 'Líder',
@@ -30,6 +31,7 @@ export default function Show({
     filters,
 }) {
     const player = membership.player;
+    const [chartMetric, setChartMetric] = useState('destruction');
     const applyFilter = (key, value) => {
         router.get(
             route('members.show', membership.id),
@@ -137,11 +139,39 @@ export default function Show({
                 <header>
                     <div>
                         <p className="section-kicker">TRAJETÓRIA</p>
-                        <h2>Destruição por guerra</h2>
+                        <h2>
+                            {chartMetric === 'destruction'
+                                ? 'Destruição por guerra'
+                                : 'Média de estrelas por guerra'}
+                        </h2>
                     </div>
-                    <div className="flex gap-3 text-xs text-zinc-500">
-                        <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-amber-500">Ataques</span>
-                        <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-red-500">Defesas</span>
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        <div
+                            className="chart-metric-toggle"
+                            role="group"
+                            aria-label="Métrica do gráfico"
+                        >
+                            <button
+                                type="button"
+                                className={chartMetric === 'destruction' ? 'is-active' : ''}
+                                aria-pressed={chartMetric === 'destruction'}
+                                onClick={() => setChartMetric('destruction')}
+                            >
+                                Destruição
+                            </button>
+                            <button
+                                type="button"
+                                className={chartMetric === 'stars' ? 'is-active' : ''}
+                                aria-pressed={chartMetric === 'stars'}
+                                onClick={() => setChartMetric('stars')}
+                            >
+                                Estrelas
+                            </button>
+                        </div>
+                        <div className="flex gap-3 text-xs text-zinc-500">
+                            <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-amber-500">Ataques</span>
+                            <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-red-500">Defesas</span>
+                        </div>
                     </div>
                 </header>
                 {series.length === 0 ? (
@@ -150,7 +180,7 @@ export default function Show({
                         seleção.
                     </PerformanceEmpty>
                 ) : (
-                    <PerformanceChart series={series} />
+                    <PerformanceChart series={series} metric={chartMetric} />
                 )}
             </section>
 
@@ -189,17 +219,30 @@ function MetricCard({ index, label, value, note, defensive = false }) {
     );
 }
 
-function PerformanceChart({ series }) {
+function PerformanceChart({ series, metric }) {
+    const [activePoint, setActivePoint] = useState(null);
     const width = 900;
     const height = 260;
     const padding = 32;
+    const isDestruction = metric === 'destruction';
+    const maximum = isDestruction ? 100 : 3;
+    const offenseField = isDestruction
+        ? 'average_destruction'
+        : 'average_stars';
+    const defenseField = isDestruction
+        ? 'average_destruction_conceded'
+        : 'average_stars_conceded';
+    const ticks = isDestruction ? [0, 25, 50, 75, 100] : [0, 1, 2, 3];
+    const formatMetric = isDestruction ? formatPercentage : formatNumber;
     const x = (index) =>
         series.length === 1
             ? width / 2
             : padding +
               (index * (width - padding * 2)) / (series.length - 1);
     const y = (value) =>
-        height - padding - (Math.min(100, value) / 100) * (height - padding * 2);
+        height -
+        padding -
+        (Math.min(maximum, value) / maximum) * (height - padding * 2);
     const offenseSeries = series
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => item.attacks > 0);
@@ -209,24 +252,31 @@ function PerformanceChart({ series }) {
     const offensePoints = offenseSeries
         .map(
             ({ item, index }) =>
-                `${x(index)},${y(item.average_destruction)}`,
+                `${x(index)},${y(item[offenseField])}`,
         )
         .join(' ');
     const defensePoints = defenseSeries
         .map(
             ({ item, index }) =>
-                `${x(index)},${y(item.average_destruction_conceded)}`,
+                `${x(index)},${y(item[defenseField])}`,
         )
         .join(' ');
+    const tooltip = activePoint
+        ? {
+              ...activePoint,
+              x: x(activePoint.index),
+              y: y(activePoint.item[activePoint.field]),
+          }
+        : null;
 
     return (
         <div className="player-chart">
             <svg
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
-                aria-label="Destruição média ofensiva e defensiva por guerra"
+                aria-label={`${isDestruction ? 'Destruição média' : 'Média de estrelas'} ofensiva e defensiva por guerra`}
             >
-                {[0, 25, 50, 75, 100].map((value) => (
+                {ticks.map((value) => (
                     <g key={value}>
                         <line
                             x1={padding}
@@ -235,7 +285,7 @@ function PerformanceChart({ series }) {
                             y2={y(value)}
                         />
                         <text x="0" y={y(value) + 4}>
-                            {value}%
+                            {isDestruction ? `${value}%` : value}
                         </text>
                     </g>
                 ))}
@@ -251,32 +301,74 @@ function PerformanceChart({ series }) {
                     <circle
                         className="is-offense"
                         cx={x(index)}
-                        cy={y(item.average_destruction)}
+                        cy={y(item[offenseField])}
                         r="4"
                         key={`offense-${item.war_id}`}
-                    >
-                        <title>
-                            {item.opponent_name}: ataque{' '}
-                            {formatPercentage(item.average_destruction)}
-                        </title>
-                    </circle>
+                        tabIndex="0"
+                        role="button"
+                        aria-label={`${item.opponent_name}: ataque ${formatMetric(item[offenseField])}`}
+                        onMouseEnter={() =>
+                            setActivePoint({
+                                item,
+                                index,
+                                field: offenseField,
+                                label: 'Ataques',
+                                kind: 'offense',
+                            })
+                        }
+                        onMouseLeave={() => setActivePoint(null)}
+                        onFocus={() =>
+                            setActivePoint({
+                                item,
+                                index,
+                                field: offenseField,
+                                label: 'Ataques',
+                                kind: 'offense',
+                            })
+                        }
+                        onBlur={() => setActivePoint(null)}
+                    />
                 ))}
                 {defenseSeries.map(({ item, index }) => (
                     <circle
                         className="is-defense"
                         cx={x(index)}
-                        cy={y(item.average_destruction_conceded)}
+                        cy={y(item[defenseField])}
                         r="4"
                         key={`defense-${item.war_id}`}
-                    >
-                        <title>
-                            {item.opponent_name}: defesa{' '}
-                            {formatPercentage(
-                                item.average_destruction_conceded,
-                            )}
-                        </title>
-                    </circle>
+                        tabIndex="0"
+                        role="button"
+                        aria-label={`${item.opponent_name}: defesa ${formatMetric(item[defenseField])}`}
+                        onMouseEnter={() =>
+                            setActivePoint({
+                                item,
+                                index,
+                                field: defenseField,
+                                label: 'Defesas',
+                                kind: 'defense',
+                            })
+                        }
+                        onMouseLeave={() => setActivePoint(null)}
+                        onFocus={() =>
+                            setActivePoint({
+                                item,
+                                index,
+                                field: defenseField,
+                                label: 'Defesas',
+                                kind: 'defense',
+                            })
+                        }
+                        onBlur={() => setActivePoint(null)}
+                    />
                 ))}
+                {tooltip && (
+                    <ChartTooltip
+                        point={tooltip}
+                        formatMetric={formatMetric}
+                        chartWidth={width}
+                        chartHeight={height}
+                    />
+                )}
             </svg>
             <div
                 className="player-chart-labels"
@@ -292,6 +384,63 @@ function PerformanceChart({ series }) {
                 ))}
             </div>
         </div>
+    );
+}
+
+function ChartTooltip({ point, formatMetric, chartWidth, chartHeight }) {
+    const boxWidth = 190;
+    const boxHeight = 62;
+    const boxX = Math.min(
+        chartWidth - boxWidth - 8,
+        Math.max(8, point.x - boxWidth / 2),
+    );
+    const boxY =
+        point.y > boxHeight + 18
+            ? point.y - boxHeight - 14
+            : Math.min(chartHeight - boxHeight - 8, point.y + 14);
+    const accent = point.kind === 'offense' ? '#f59e0b' : '#ef4444';
+
+    return (
+        <g className="player-chart-tooltip" aria-hidden="true">
+            <line
+                className="player-chart-guide"
+                x1={point.x}
+                x2={point.x}
+                y1="12"
+                y2={chartHeight - 32}
+            />
+            <rect
+                x={boxX}
+                y={boxY}
+                width={boxWidth}
+                height={boxHeight}
+                rx="7"
+            />
+            <rect
+                className="player-chart-tooltip-accent"
+                x={boxX}
+                y={boxY}
+                width="4"
+                height={boxHeight}
+                rx="2"
+                fill={accent}
+            />
+            <text className="player-chart-tooltip-name" x={boxX + 13} y={boxY + 20}>
+                {point.item.opponent_name}
+            </text>
+            <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 40}>
+                {point.label} · {formatShortDate(point.item.end_time)}
+            </text>
+            <text
+                className="player-chart-tooltip-value"
+                x={boxX + boxWidth - 12}
+                y={boxY + 40}
+                textAnchor="end"
+                fill={accent}
+            >
+                {formatMetric(point.item[point.field])}
+            </text>
+        </g>
     );
 }
 

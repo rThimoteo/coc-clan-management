@@ -37,6 +37,32 @@
     font-size: 1rem;
 }
 
+.chart-metric-toggle {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid #44403c;
+    border-radius: 0.5rem;
+    background: #0c0a09;
+}
+
+.chart-metric-toggle button {
+    border-radius: 0.3rem;
+    padding: 0.3rem 0.55rem;
+    color: #78716c;
+    font-size: 0.68rem;
+    font-weight: 700;
+    transition: color 150ms ease, background-color 150ms ease;
+}
+
+.chart-metric-toggle button:hover {
+    color: #d6d3d1;
+}
+
+.chart-metric-toggle button.is-active {
+    background: #f59e0b;
+    color: #1c1917;
+}
+
 .player-chart {
     overflow-x: auto;
     padding: 1rem;
@@ -81,6 +107,50 @@
     fill: #ef4444;
     stroke: #1c1917;
     stroke-width: 2;
+}
+
+.player-chart circle {
+    cursor: pointer;
+    transition: r 120ms ease, stroke-width 120ms ease;
+}
+
+.player-chart circle:hover,
+.player-chart circle:focus {
+    r: 6px;
+    outline: none;
+    stroke-width: 3;
+}
+
+.player-chart-tooltip {
+    pointer-events: none;
+}
+
+.player-chart-tooltip > rect:first-of-type {
+    fill: #0c0a09;
+    stroke: #57534e;
+    stroke-width: 1;
+}
+
+.player-chart .player-chart-guide {
+    stroke: #78716c;
+    stroke-dasharray: 3 4;
+    opacity: 0.45;
+}
+
+.player-chart .player-chart-tooltip-name {
+    fill: #f5f5f4;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.player-chart .player-chart-tooltip-meta {
+    fill: #78716c;
+    font-size: 9px;
+}
+
+.player-chart .player-chart-tooltip-value {
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .player-chart-labels {
