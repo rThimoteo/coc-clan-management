@@ -128,7 +128,7 @@ class PlayerPerformanceQuery
         return War::query()
             ->whereBelongsTo($clan)
             ->where('has_details', true)
-            ->where('end_time', '<=', now())
+            ->where('end_time', '<=', now()->addDay())
             ->when($type !== 'all', fn ($query) => $query->where('type', $type))
             ->whereHas('members', fn ($query) => $query
                 ->where('side', 'clan')
