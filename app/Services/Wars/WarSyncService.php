@@ -107,14 +107,30 @@ class WarSyncService
     {
         $payload = $this->orientPayload($clan->tag, $payload);
         $externalKey = $this->externalKey($clan->tag, $payload);
-        $war = War::query()->firstOrNew([
-            'clan_id' => $clan->id,
-            'external_key' => $externalKey,
-        ]);
+        $opponentTag = $this->clashOfClans->normalizeTag((string) data_get($payload, 'opponent.tag'));
+        $startTime = $this->parseTime(data_get($payload, 'startTime'));
+        $war = War::query()
+            ->whereBelongsTo($clan)
+            ->where('external_key', $externalKey)
+            ->first();
+
+        if ($war === null && $startTime !== null) {
+            $war = War::query()
+                ->whereBelongsTo($clan)
+                ->where('type', $type)
+                ->whereNotNull('state')
+                ->where('opponent_tag', $opponentTag)
+                ->where('start_time', $startTime)
+                ->latest('id')
+                ->first();
+        }
+
+        $war ??= new War(['clan_id' => $clan->id]);
         $wasRecentlyCreated = ! $war->exists;
 
         $attributes = [
             ...$this->warAttributes($payload, $detailed),
+            'external_key' => $externalKey,
             'type' => $type,
         ];
 

@@ -3,6 +3,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
+const cutButton =
+    'inline-flex items-center gap-2 border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const cutPanel =
+    '[clip-path:polygon(0_0,calc(100%-0.55rem)_0,100%_0.55rem,100%_100%,0.55rem_100%,0_calc(100%-0.55rem))]';
+
 export default function Show({ war, clan, isActive, isPreparation }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
@@ -42,7 +47,7 @@ export default function Show({ war, clan, isActive, isPreparation }) {
             <Head title={`Guerra contra ${war.opponent_name}`} />
 
             <div className="war-details-toolbar">
-                <Link href={route('wars.index')} className="war-back-link">
+                <Link href={route('wars.index')} className="text-sm font-bold text-zinc-500 hover:text-amber-300">
                     ← Voltar para guerras
                 </Link>
 
@@ -77,7 +82,7 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                 </div>
             )}
 
-            <section className="war-scoreboard">
+            <section className={`${cutPanel} grid gap-px overflow-hidden border border-white/10 bg-white/10 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]`}>
                 <ClanScore
                     name={clan?.name ?? 'Nosso clã'}
                     tag={clan?.tag}
@@ -85,14 +90,14 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                     stars={war.clan_stars}
                     destruction={war.clan_destruction_percentage}
                 />
-                <div className="war-scoreboard-center">
+                <div className="grid min-w-40 content-center bg-zinc-900/90 p-5 text-center">
                     {isActive && (
                         <>
                             <div
-                                className={`war-live-badge ${isPreparation ? 'is-preparation' : ''}`}
+                                className={`mx-auto mb-3 inline-flex items-center gap-2 border px-3 py-1 text-[0.66rem] font-black uppercase tracking-[0.16em] ${isPreparation ? 'border-amber-400/35 bg-amber-400/10 text-amber-200' : 'border-rose-400/35 bg-rose-400/10 text-rose-200'} ${cutPanel}`}
                                 role="status"
                             >
-                                <span aria-hidden="true" />
+                                <span className={`h-1.5 w-1.5 ${isPreparation ? 'bg-amber-300' : 'bg-rose-400'}`} aria-hidden="true" />
                                 {isPreparation ? 'PREPARAÇÃO' : 'AO VIVO'}
                             </div>
                             <LiveWarCountdown
@@ -114,9 +119,9 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                             />
                         </>
                     )}
-                    <span>{war.team_size} × {war.team_size}</span>
-                    <strong>{war.clan_stars} <i>×</i> {war.opponent_stars}</strong>
-                    <small>{resultLabel(war.result, war.state)}</small>
+                    <span className="block text-xs font-black uppercase tracking-[0.12em] text-zinc-600">{war.team_size} × {war.team_size}</span>
+                    <strong className="my-2 block font-display text-4xl font-black text-zinc-100">{war.clan_stars} <i className="text-sm not-italic text-zinc-600">×</i> {war.opponent_stars}</strong>
+                    <small className="block text-xs font-black uppercase tracking-[0.12em] text-zinc-600">{resultLabel(war.result, war.state)}</small>
                 </div>
                 <ClanScore
                     name={war.opponent_name}
@@ -158,7 +163,7 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                                 return (
                                     <tr key={member.id}>
                                         <td>
-                                            <span className="map-position">#{member.map_position}</span>
+                                            <span className="grid h-8 w-8 place-items-center border border-white/15 bg-zinc-950 font-display text-xs text-zinc-300 [clip-path:polygon(0_0,calc(100%-0.35rem)_0,100%_0.35rem,100%_100%,0.35rem_100%,0_calc(100%-0.35rem))]">#{member.map_position}</span>
                                         </td>
                                         <td>
                                             <strong className='mr-2'>{member.name}</strong>
@@ -180,7 +185,7 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                                         </td>
                                         <td>
                                             <button
-                                                className="defenses-button"
+                                                className={cutButton}
                                                 onClick={() =>
                                                     setDefenseMember({
                                                         ...member,
@@ -189,7 +194,9 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                                                 }
                                             >
                                                 Ver defesas
-                                                <span>{defenses.length}</span>
+                                                <span className="grid h-5 min-w-5 place-items-center border border-white/15 bg-zinc-950 px-1 text-[0.66rem] text-zinc-400">
+                                                    {defenses.length}
+                                                </span>
                                             </button>
                                         </td>
                                     </tr>
@@ -213,13 +220,13 @@ export default function Show({ war, clan, isActive, isPreparation }) {
 
 function ClanScore({ name, tag, badge, stars, destruction, opponent = false }) {
     return (
-        <div className={`war-clan-score ${opponent ? 'is-opponent' : ''}`}>
-            {badge ? <img src={badge} alt="" /> : <div className="war-badge-fallback">CM</div>}
+        <div className={`flex items-center gap-4 bg-zinc-900/90 p-5 ${opponent ? 'text-right lg:[&>img]:order-2 lg:[&>.war-badge-fallback]:order-2' : ''}`}>
+            {badge ? <img className="h-14 w-14 shrink-0 object-contain" src={badge} alt="" /> : <div className={`war-badge-fallback grid h-14 w-14 shrink-0 place-items-center border border-white/15 bg-zinc-950 text-xs font-black text-zinc-500 ${cutPanel}`}>CM</div>}
             <div>
-                <small>{opponent ? 'OPONENTE' : 'NOSSO CLÃ'}</small>
-                <h2>{name}</h2>
-                <p>{tag}</p>
-                <strong>★ {stars} · {formatPercentage(destruction)}</strong>
+                <small className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-zinc-600">{opponent ? 'OPONENTE' : 'NOSSO CLÃ'}</small>
+                <h2 className="mt-1 font-display text-xl font-black text-zinc-100">{name}</h2>
+                <p className="text-xs text-zinc-600">{tag}</p>
+                <strong className="mt-2 block text-xs font-black text-amber-300">★ {stars} · {formatPercentage(destruction)}</strong>
             </div>
         </div>
     );
@@ -227,17 +234,17 @@ function ClanScore({ name, tag, badge, stars, destruction, opponent = false }) {
 
 function AttackResult({ attack, defender }) {
     if (!attack) {
-        return <span className="attack-empty">Não realizado</span>;
+        return <span className="text-xs text-zinc-700">Não realizado</span>;
     }
 
     return (
-        <div className="attack-result">
-            <span className={`attack-stars is-${attack.stars}`}>
+        <div className="min-w-28">
+            <span className="flex gap-0.5 text-lg leading-none text-amber-300">
                 {Array.from({ length: 3 }, (_, index) => (
-                    <i key={index}>{index < attack.stars ? '★' : ''}</i>
+                    <i className="not-italic" key={index}>{index < attack.stars ? '★' : ''}</i>
                 ))}
             </span>
-            <small>
+            <small className="mt-1 block text-xs text-zinc-500">
                 {formatPercentage(attack.destruction_percentage)}
                 {defender ? ` · #${defender.map_position}` : ''}
             </small>
@@ -268,15 +275,15 @@ function DefenseModal({ member, opponents, onClose }) {
                         Nenhum ataque registrado contra esta vila.
                     </div>
                 ) : (
-                    <div className="defense-list">
+                    <div className="grid gap-px bg-white/10">
                         {member.defenses.map((defense) => {
                             const attacker = opponents[defense.attacker_tag];
                             return (
-                                <article key={defense.id}>
-                                    <span className="defense-order">#{defense.attack_order}</span>
+                                <article className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 bg-zinc-900 p-4" key={defense.id}>
+                                    <span className="font-display text-xs font-black text-amber-300">#{defense.attack_order}</span>
                                     <div>
-                                        <strong>{attacker?.name ?? defense.attacker_tag}</strong>
-                                        <small>
+                                        <strong className="block text-sm font-black text-zinc-100">{attacker?.name ?? defense.attacker_tag}</strong>
+                                        <small className="mt-0.5 block text-xs text-zinc-600">
                                             {attacker ? `Posição #${attacker.map_position}` : defense.attacker_tag}
                                         </small>
                                     </div>

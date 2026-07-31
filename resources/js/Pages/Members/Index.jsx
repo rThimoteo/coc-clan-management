@@ -16,6 +16,11 @@ const roleLabels = {
     member: 'Membro',
 };
 
+const cutBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const actionLink =
+    'inline-flex border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+
 export default function Index({
     members,
     clan,
@@ -256,7 +261,7 @@ export default function Index({
                                             <small>{member.player_tag}</small>
                                         </td>
                                         <td>
-                                            <span className="town-hall-level">
+                                            <span className={`${cutBadge} border-amber-400/30 bg-amber-400/10 text-amber-300`}>
                                                 {member.town_hall_level
                                                     ? member.town_hall_level
                                                     : '—'}
@@ -264,14 +269,18 @@ export default function Index({
                                         </td>
                                         <td>{roleLabels[member.role] ?? member.role ?? '—'}</td>
                                         <td>
-                                            <span className={`member-status is-${member.status.slug}`}>
-                                                <i />
+                                            <span className={`${cutBadge} ${
+                                                member.status.slug === 'in'
+                                                    ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                                                    : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'
+                                            }`}>
+                                                <i className="h-1.5 w-1.5 bg-current" />
                                                 {statusLabels[member.status.slug]}
                                             </span>
                                         </td>
                                         <td className="war-action-cell">
                                             <Link
-                                                className="war-details-link"
+                                                className={actionLink}
                                                 href={route(
                                                     'members.show',
                                                     member.id,
@@ -306,7 +315,8 @@ function SortableHeader({ column, label, filters, onSort }) {
             }
         >
             <button
-                className={`sortable-column ${active ? 'is-active' : ''}`}
+                className={`inline-flex items-center gap-1 uppercase text-inherit transition hover:text-amber-300 ${active ? 'text-amber-300' : ''}`}
+                style={{ font: 'inherit', letterSpacing: 'inherit' }}
                 onClick={() => onSort(column)}
             >
                 {label}

@@ -16,6 +16,21 @@ const stateLabels = {
     inWar: 'Em andamento',
 };
 
+const cutBadge =
+    'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const detailsLink =
+    'inline-flex border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+
+function resultBadgeClass(result) {
+    return `${cutBadge} ${
+        result === 'win'
+            ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+            : result === 'lose'
+              ? 'border-rose-400/30 bg-rose-400/10 text-rose-200'
+              : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'
+    }`;
+}
+
 export default function Index({ wars, clan, activeWar, warStats, filters }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
@@ -174,28 +189,28 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                                 {wars.data.map((war) => (
                                     <tr key={war.id}>
                                         <td>
-                                            <span className={`war-result is-${war.result ?? 'pending'}`}>
+                                            <span className={resultBadgeClass(war.result)}>
                                                 {resultLabels[war.result] ??
                                                     stateLabels[war.state] ??
                                                     'Pendente'}
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="war-opponent">
+                                            <div className="flex items-center gap-3">
                                                 {war.opponent_badge_url && (
-                                                    <img src={war.opponent_badge_url} alt="" />
+                                                    <img className="h-9 w-9 object-contain" src={war.opponent_badge_url} alt="" />
                                                 )}
                                                 <span>
-                                                    <strong>{war.opponent_name}</strong>
-                                                    <small>{war.opponent_tag}</small>
+                                                    <strong className="block text-sm font-black text-zinc-100">{war.opponent_name}</strong>
+                                                    <small className="mt-0.5 block text-xs text-zinc-600">{war.opponent_tag}</small>
                                                 </span>
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="war-score">
-                                                <strong>{war.clan_stars}</strong>
-                                                <i>×</i>
-                                                <span>{war.opponent_stars}</span>
+                                            <span className="inline-flex items-center gap-2 font-display text-base">
+                                                <strong className="text-amber-300">{war.clan_stars}</strong>
+                                                <i className="text-xs not-italic text-zinc-600">×</i>
+                                                <span className="text-zinc-400">{war.opponent_stars}</span>
                                             </span>
                                         </td>
                                         <td>
@@ -205,7 +220,7 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                                         <td className="war-action-cell">
                                             {war.has_details && (
                                                 <Link
-                                                    className="war-details-link"
+                                                    className={detailsLink}
                                                     href={route('wars.show', war.id)}
                                                 >
                                                     Ver detalhes
