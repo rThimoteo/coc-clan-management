@@ -10,6 +10,7 @@ use App\Models\War;
 use App\Models\WarAttack;
 use App\Models\WarMember;
 use App\Services\Clans\ActiveClanContext;
+use App\Services\Wars\WarSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
@@ -60,6 +61,104 @@ class WarPanelTest extends TestCase
         $this->assertDatabaseCount(War::class, 1);
         $this->assertDatabaseCount(WarMember::class, 4);
         $this->assertDatabaseCount(WarAttack::class, 4);
+    }
+
+    public function test_sync_updates_the_same_war_across_its_lifecycle_when_end_time_changes(): void
+    {
+        $clan = Clan::query()->create(['tag' => '#QGRJ2']);
+        $sync = app(WarSyncService::class);
+        $war = [
+            'state' => 'preparation',
+            'preparationStartTime' => '20260730T013816.000Z',
+            'startTime' => '20260731T023816.000Z',
+            'endTime' => '20260801T023816.000Z',
+            'teamSize' => 45,
+            'clan' => [
+                'tag' => '#QGRJ2',
+                'name' => 'Nosso Clã',
+                'stars' => 0,
+                'destructionPercentage' => 0,
+                'members' => [],
+            ],
+            'opponent' => [
+                'tag' => '#2JLRVG8CL',
+                'name' => 'O. P. HUNTERS',
+                'stars' => 0,
+                'destructionPercentage' => 0,
+                'members' => [],
+            ],
+        ];
+
+        $sync->persistDetailedWar($clan, $war);
+        $warId = War::query()->sole()->id;
+
+        $activeWar = [
+            ...$war,
+            'state' => 'inWar',
+            'endTime' => '20260801T031001.000Z',
+        ];
+        $sync->persistDetailedWar($clan, $activeWar);
+
+        $this->assertDatabaseCount(War::class, 1);
+        $this->assertSame($warId, War::query()->sole()->id);
+        $this->assertSame('inWar', War::query()->sole()->state);
+        $this->assertSame('2026-08-01 03:10:01', War::query()->sole()->end_time->format('Y-m-d H:i:s'));
+
+        $endedWar = [
+            ...$activeWar,
+            'state' => 'warEnded',
+            'result' => 'win',
+        ];
+        unset($endedWar['preparationStartTime'], $endedWar['startTime']);
+        $sync->persistDetailedWar($clan, $endedWar);
+
+        $storedWar = War::query()->sole();
+        $this->assertSame($warId, $storedWar->id);
+        $this->assertSame('warEnded', $storedWar->state);
+        $this->assertSame('win', $storedWar->result);
+    }
+
+    public function test_lifecycle_reconciliation_ignores_war_summaries_without_state(): void
+    {
+        $clan = Clan::query()->create(['tag' => '#QGRJ2']);
+        War::query()->create([
+            'clan_id' => $clan->id,
+            'external_key' => hash('sha256', 'historical-summary'),
+            'type' => 'regular',
+            'state' => null,
+            'team_size' => 45,
+            'start_time' => '2026-07-31 02:38:16',
+            'end_time' => '2026-08-01 02:38:16',
+            'opponent_tag' => '#2JLRVG8CL',
+            'opponent_name' => 'O. P. HUNTERS',
+        ]);
+
+        app(WarSyncService::class)->persistDetailedWar($clan, [
+            'state' => 'inWar',
+            'startTime' => '20260731T023816.000Z',
+            'endTime' => '20260801T031001.000Z',
+            'teamSize' => 45,
+            'clan' => [
+                'tag' => '#QGRJ2',
+                'name' => 'Nosso Clã',
+                'stars' => 0,
+                'destructionPercentage' => 0,
+                'members' => [],
+            ],
+            'opponent' => [
+                'tag' => '#2JLRVG8CL',
+                'name' => 'O. P. HUNTERS',
+                'stars' => 0,
+                'destructionPercentage' => 0,
+                'members' => [],
+            ],
+        ]);
+
+        $this->assertDatabaseCount(War::class, 2);
+        $this->assertDatabaseHas(War::class, [
+            'external_key' => hash('sha256', 'historical-summary'),
+            'state' => null,
+        ]);
     }
 
     public function test_war_list_and_detailed_page_are_available(): void
