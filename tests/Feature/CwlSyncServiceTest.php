@@ -52,6 +52,21 @@ class CwlSyncServiceTest extends TestCase
         $this->assertSame(1, ClanWarLeagueRoundWar::query()->where('status', 'synced')->count());
         $this->assertSame(1, ClanWarLeagueRoundWar::query()->where('status', 'unrelated')->count());
         $this->assertSame(1, ClanWarLeagueRoundWar::query()->where('is_placeholder', true)->count());
+        $this->assertDatabaseHas(ClanWarLeagueRoundWar::class, [
+            'war_tag' => '#2PQ',
+            'state' => 'inWar',
+            'clan_tag' => '#OTHER1',
+            'opponent_tag' => '#OTHER2',
+            'clan_stars' => 0,
+            'opponent_stars' => 0,
+            'war_id' => null,
+        ]);
+        $this->assertNotNull(
+            ClanWarLeagueRoundWar::query()
+                ->where('war_tag', '#2PQ')
+                ->sole()
+                ->summary_synced_at,
+        );
         $this->assertDatabaseHas(War::class, [
             'clan_id' => $clan->id,
             'type' => 'cwl',
@@ -92,7 +107,7 @@ class CwlSyncServiceTest extends TestCase
         $this->assertSame('2026-07-11 04:31:42', $league->end_time->format('Y-m-d H:i:s'));
     }
 
-    public function test_sync_is_idempotent_and_retries_only_pending_tags(): void
+    public function test_sync_is_idempotent_retries_pending_tags_and_refreshes_active_wars(): void
     {
         $clan = $this->clan();
         $this->fakeCwlApi();
@@ -111,8 +126,87 @@ class CwlSyncServiceTest extends TestCase
             ClanWarLeagueRoundWar::query()->count(),
             War::query()->count(),
         ]);
-        $this->assertSame(0, $summary['detailed']);
+        $this->assertSame(1, $summary['detailed']);
         $this->assertSame(2, $summary['pending']);
+    }
+
+    public function test_it_normalizes_a_dated_group_season_to_the_month(): void
+    {
+        $clan = $this->clan();
+        Http::fake(function (Request $request) {
+            if (str_contains($request->url(), '/warlog')) {
+                return Http::response(['items' => []]);
+            }
+
+            if (str_contains($request->url(), 'leaguegroup')) {
+                $group = $this->fixture('cwl_league_group.json');
+                $group['season'] = '2026-08-02';
+
+                return Http::response($group);
+            }
+
+            return Http::response([], 404);
+        });
+
+        app(CwlSyncService::class)->sync($clan);
+
+        $this->assertDatabaseHas(ClanWarLeague::class, [
+            'clan_id' => $clan->id,
+            'season' => '2026-08',
+        ]);
+    }
+
+    public function test_it_refreshes_a_managed_war_until_its_final_state(): void
+    {
+        $clan = $this->clan();
+        $warRequests = 0;
+        Http::fake(function (Request $request) use (&$warRequests) {
+            if (str_contains($request->url(), '/warlog')) {
+                return Http::response(['items' => []]);
+            }
+
+            if (str_contains($request->url(), 'leaguegroup')) {
+                $group = $this->fixture('cwl_league_group.json');
+                $group['rounds'] = [['warTags' => ['#2PP']]];
+
+                return Http::response($group);
+            }
+
+            if (str_contains($request->url(), '%232PP')) {
+                $warRequests++;
+                $war = $this->fixture('cwl_war.json');
+
+                if ($warRequests === 1) {
+                    $war['state'] = 'preparation';
+                    $war['clan']['stars'] = 0;
+                } else {
+                    $war['state'] = 'warEnded';
+                    $war['clan']['stars'] = 31;
+                }
+
+                return Http::response($war);
+            }
+
+            return Http::response([], 404);
+        });
+        $sync = app(CwlSyncService::class);
+
+        $sync->sync($clan);
+        $this->assertDatabaseHas(War::class, [
+            'clan_id' => $clan->id,
+            'state' => 'preparation',
+            'clan_stars' => 0,
+        ]);
+
+        $sync->sync($clan);
+        $sync->sync($clan);
+
+        $this->assertSame(2, $warRequests);
+        $this->assertDatabaseHas(War::class, [
+            'clan_id' => $clan->id,
+            'state' => 'warEnded',
+            'clan_stars' => 31,
+        ]);
     }
 
     public function test_it_orients_a_war_when_the_managed_clan_is_the_api_opponent(): void

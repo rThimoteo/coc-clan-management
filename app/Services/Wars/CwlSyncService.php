@@ -52,10 +52,13 @@ class CwlSyncService
             ->whereHas('round', fn ($query) => $query
                 ->where('clan_war_league_id', $league->id))
             ->where('is_placeholder', false)
-            ->where('status', 'pending')
             ->get();
 
         foreach ($entries as $entry) {
+            if (in_array($entry->state, ['warEnded', 'ended'], true)) {
+                continue;
+            }
+
             try {
                 $payload = $this->clashOfClans->clanWarLeagueWar($entry->war_tag);
             } catch (ClashOfClansException $exception) {
@@ -73,6 +76,8 @@ class CwlSyncService
 
                 continue;
             }
+
+            $this->persistMatchSummary($entry, $payload);
 
             if (! $this->containsClan($payload, $clan->tag)) {
                 $entry->update(['status' => 'unrelated']);
@@ -96,6 +101,73 @@ class CwlSyncService
             ->count();
 
         return $summary;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function persistMatchSummary(
+        ClanWarLeagueRoundWar $entry,
+        array $payload,
+    ): void {
+        $state = (string) data_get($payload, 'state');
+        $clan = (array) data_get($payload, 'clan', []);
+        $opponent = (array) data_get($payload, 'opponent', []);
+        $clanTag = $this->clashOfClans->normalizeTag((string) data_get($clan, 'tag'));
+        $opponentTag = $this->clashOfClans->normalizeTag((string) data_get($opponent, 'tag'));
+
+        $entry->update([
+            'state' => $state,
+            'team_size' => data_get($payload, 'teamSize'),
+            'preparation_start_time' => $this->parseTime(data_get($payload, 'preparationStartTime')),
+            'start_time' => $this->parseTime(data_get($payload, 'startTime')),
+            'end_time' => $this->parseTime(data_get($payload, 'endTime')),
+            'clan_tag' => $clanTag,
+            'clan_name' => data_get($clan, 'name'),
+            'clan_badge_url' => data_get($clan, 'badgeUrls.medium'),
+            'clan_attacks' => data_get($clan, 'attacks'),
+            'clan_stars' => (int) data_get($clan, 'stars', 0),
+            'clan_destruction_percentage' => (float) data_get($clan, 'destructionPercentage', 0),
+            'opponent_tag' => $opponentTag,
+            'opponent_name' => data_get($opponent, 'name'),
+            'opponent_badge_url' => data_get($opponent, 'badgeUrls.medium'),
+            'opponent_attacks' => data_get($opponent, 'attacks'),
+            'opponent_stars' => (int) data_get($opponent, 'stars', 0),
+            'opponent_destruction_percentage' => (float) data_get($opponent, 'destructionPercentage', 0),
+            'winner_tag' => $this->winnerTag($state, $clan, $opponent),
+            'summary_synced_at' => now(),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $clan
+     * @param  array<string, mixed>  $opponent
+     */
+    private function winnerTag(string $state, array $clan, array $opponent): ?string
+    {
+        if (! in_array($state, ['warEnded', 'ended'], true)) {
+            return null;
+        }
+
+        $clanStars = (int) data_get($clan, 'stars', 0);
+        $opponentStars = (int) data_get($opponent, 'stars', 0);
+        $clanDestruction = (float) data_get($clan, 'destructionPercentage', 0);
+        $opponentDestruction = (float) data_get($opponent, 'destructionPercentage', 0);
+
+        if (
+            $clanStars === $opponentStars &&
+            $clanDestruction === $opponentDestruction
+        ) {
+            return null;
+        }
+
+        $clanWon = $clanStars > $opponentStars || (
+            $clanStars === $opponentStars &&
+            $clanDestruction > $opponentDestruction
+        );
+        $winner = $clanWon ? $clan : $opponent;
+
+        return $this->clashOfClans->normalizeTag((string) data_get($winner, 'tag'));
     }
 
     private function persistWarLogSummaries(Clan $clan): void

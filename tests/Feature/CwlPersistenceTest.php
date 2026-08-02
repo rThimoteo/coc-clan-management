@@ -45,6 +45,15 @@ class CwlPersistenceTest extends TestCase
             'war_tag',
             'is_placeholder',
             'status',
+            'state',
+            'clan_tag',
+            'clan_stars',
+            'clan_destruction_percentage',
+            'opponent_tag',
+            'opponent_stars',
+            'opponent_destruction_percentage',
+            'winner_tag',
+            'summary_synced_at',
             'war_id',
         ]));
 

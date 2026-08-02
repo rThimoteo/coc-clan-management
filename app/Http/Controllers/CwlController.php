@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Clan;
 use App\Models\ClanWarLeague;
+use App\Models\War;
 use App\Services\Clans\ActiveClanContext;
 use App\Services\ClashOfClans\ClashOfClansException;
 use App\Services\Wars\CwlSyncService;
+use App\Services\Wars\CwlStandings;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,23 +53,27 @@ class CwlController extends Controller
         Request $request,
         ClanWarLeague $league,
         ActiveClanContext $context,
+        CwlStandings $standings,
     ): Response {
         $clan = $context->active($request);
 
         abort_unless($clan && $league->clan_id === $clan->id, 404);
 
+        $league->load([
+            'participants' => fn ($query) => $query->orderBy('name'),
+            'rounds' => fn ($query) => $query
+                ->orderBy('round_number')
+                ->with([
+                    'wars' => fn ($query) => $query
+                        ->orderBy('id')
+                        ->with('war'),
+                ]),
+        ]);
+
         return Inertia::render('Cwl/Show', [
             'clan' => $clan,
-            'league' => $league->load([
-                'participants' => fn ($query) => $query->orderBy('name'),
-                'rounds' => fn ($query) => $query
-                    ->orderBy('round_number')
-                    ->with([
-                        'wars' => fn ($query) => $query
-                            ->orderBy('id')
-                            ->with('war'),
-                    ]),
-            ]),
+            'league' => $league,
+            'standings' => $standings->forLeague($league),
         ]);
     }
 
@@ -93,5 +99,42 @@ class CwlController extends Controller
         return back()
             ->with('status', 'cwl-synced')
             ->with('syncSummary', $summary);
+    }
+
+    public function war(
+        Request $request,
+        ClanWarLeague $league,
+        War $war,
+        ActiveClanContext $context,
+    ): Response {
+        $clan = $context->active($request);
+
+        abort_unless(
+            $clan &&
+            $league->clan_id === $clan->id &&
+            $war->clan_id === $clan->id &&
+            $war->type === 'cwl' &&
+            $war->has_details &&
+            $war->leagueRoundWar()
+                ->whereHas('round', fn ($query) => $query
+                    ->where('clan_war_league_id', $league->id))
+                ->exists(),
+            404,
+        );
+
+        return Inertia::render('Wars/Show', [
+            'clan' => $clan,
+            'isActive' => $war->end_time->isFuture(),
+            'isPreparation' => $war->state === 'preparation',
+            'navigation' => [
+                'back_href' => route('cwl.show', $league),
+                'back_label' => "Voltar para CWL {$league->season}",
+                'sync_route' => route('cwl.sync'),
+            ],
+            'war' => $war->load([
+                'members' => fn ($query) => $query->orderBy('map_position'),
+                'attacks' => fn ($query) => $query->orderBy('attack_order'),
+            ]),
+        ]);
     }
 }

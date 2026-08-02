@@ -38,6 +38,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/cwl/sync', [CwlController::class, 'sync'])
         ->middleware('can:sync-clan-data')
         ->name('cwl.sync');
+    Route::get('/cwl/{league}/wars/{war}', [CwlController::class, 'war'])
+        ->name('cwl.wars.show');
     Route::get('/cwl/{league}', [CwlController::class, 'show'])->name('cwl.show');
 
     Route::middleware('can:manage-clan')->prefix('admin')->name('admin.')->group(function () {

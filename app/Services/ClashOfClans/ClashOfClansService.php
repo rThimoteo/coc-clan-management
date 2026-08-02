@@ -92,7 +92,7 @@ class ClashOfClansService
 
         return new CwlLeagueGroup(
             state: $state,
-            season: $season,
+            season: $this->normalizeCwlSeason($season),
             clans: collect($clans)
                 ->map(fn (mixed $clan): CwlLeagueClan => $this->mapCwlClan($clan))
                 ->values()
@@ -353,6 +353,15 @@ class ClashOfClansService
             clanLevel: is_int(data_get($clan, 'clanLevel')) ? data_get($clan, 'clanLevel') : null,
             badgeUrl: is_string(data_get($clan, 'badgeUrls.medium')) ? data_get($clan, 'badgeUrls.medium') : null,
         );
+    }
+
+    private function normalizeCwlSeason(string $season): string
+    {
+        if (! preg_match('/^\d{4}-\d{2}(?:-\d{2})?$/', $season)) {
+            throw new ClashOfClansException('A API retornou uma temporada de Liga de Guerra inválida.');
+        }
+
+        return substr($season, 0, 7);
     }
 
     private function mapCwlRound(mixed $round, int $index): CwlRound

@@ -20,6 +20,8 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_displays_operational_metrics_and_recent_wars(): void
     {
+        $this->travelTo('2026-08-15 12:00:00');
+
         $clan = Clan::query()->create([
             'tag' => '#QGRJ2',
             'is_default' => true,
