@@ -11,6 +11,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'war_tag',
     'is_placeholder',
     'status',
+    'state',
+    'team_size',
+    'preparation_start_time',
+    'start_time',
+    'end_time',
+    'clan_tag',
+    'clan_name',
+    'clan_badge_url',
+    'clan_attacks',
+    'clan_stars',
+    'clan_destruction_percentage',
+    'opponent_tag',
+    'opponent_name',
+    'opponent_badge_url',
+    'opponent_attacks',
+    'opponent_stars',
+    'opponent_destruction_percentage',
+    'winner_tag',
+    'summary_synced_at',
     'war_id',
 ])]
 class ClanWarLeagueRoundWar extends Model
@@ -19,6 +38,12 @@ class ClanWarLeagueRoundWar extends Model
     {
         return [
             'is_placeholder' => 'boolean',
+            'preparation_start_time' => 'datetime',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
+            'clan_destruction_percentage' => 'float',
+            'opponent_destruction_percentage' => 'float',
+            'summary_synced_at' => 'datetime',
         ];
     }
 

@@ -7,11 +7,18 @@ const stateLabels = {
     ended: 'Encerrada',
 };
 
+const warStateLabels = {
+    preparation: 'Preparação',
+    inWar: 'Em andamento',
+    warEnded: 'Encerrada',
+    ended: 'Encerrada',
+};
+
 const CWL_ROUNDS = 7;
 const stateBadge =
     'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 
-export default function Show({ clan, league }) {
+export default function Show({ clan, league, standings }) {
     return (
         <AuthenticatedLayout
             header={`CWL ${formatSeason(league.season)}`}
@@ -93,6 +100,8 @@ export default function Show({ clan, league }) {
                     ))}
                 </div>
 
+                <Standings standings={standings} ownClanTag={clan.tag} />
+
                 {league.rounds.length === 0 ? (
                     <div className="cwl-detail-unavailable">
                         <strong>Resumo preservado.</strong>
@@ -117,12 +126,22 @@ export default function Show({ clan, league }) {
                                     </strong>
                                 </header>
                                 <div>
-                                    {round.wars.map((entry) => (
-                                        <RoundWar
-                                            entry={entry}
-                                            key={entry.id}
-                                        />
-                                    ))}
+                                    {round.wars.every(
+                                        (entry) => entry.is_placeholder,
+                                    ) ? (
+                                        <div className="cwl-match is-pending">
+                                            <span>Confrontos ainda não definidos pela API</span>
+                                        </div>
+                                    ) : (
+                                        round.wars.map((entry) => (
+                                            <RoundWar
+                                                entry={entry}
+                                                key={entry.id}
+                                                leagueId={league.id}
+                                                ownClanTag={clan.tag}
+                                            />
+                                        ))
+                                    )}
                                 </div>
                             </section>
                         ))}
@@ -133,7 +152,72 @@ export default function Show({ clan, league }) {
     );
 }
 
-function RoundWar({ entry }) {
+function Standings({ standings, ownClanTag }) {
+    return (
+        <section className="cwl-standings">
+            <header>
+                <div>
+                    <p className="section-kicker">CLASSIFICAÇÃO AO VIVO</p>
+                    <h3>Tabela da liga</h3>
+                </div>
+                <small>Vitória vale +10 estrelas</small>
+            </header>
+            <div className="cwl-standings-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Clã</th>
+                            <th>J</th>
+                            <th>V</th>
+                            <th>E</th>
+                            <th>D</th>
+                            <th>Estrelas</th>
+                            <th>Bônus</th>
+                            <th>Total</th>
+                            <th>Destruição</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {standings.map((standing) => (
+                            <tr
+                                className={
+                                    standing.clan_tag === ownClanTag
+                                        ? 'is-own-clan'
+                                        : undefined
+                                }
+                                key={standing.clan_tag}
+                            >
+                                <td><strong>{standing.position}</strong></td>
+                                <td>
+                                    <span className="cwl-standing-clan">
+                                        {standing.badge_url && (
+                                            <img src={standing.badge_url} alt="" />
+                                        )}
+                                        <span>
+                                            <strong>{standing.name}</strong>
+                                            <small>{standing.clan_tag}</small>
+                                        </span>
+                                    </span>
+                                </td>
+                                <td>{standing.played}</td>
+                                <td>{standing.wins}</td>
+                                <td>{standing.draws}</td>
+                                <td>{standing.losses}</td>
+                                <td>{standing.stars}</td>
+                                <td className="is-bonus">+{standing.bonus_stars}</td>
+                                <td className="is-total">{standing.score}</td>
+                                <td>{formatPercentage(standing.destruction_percentage)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    );
+}
+
+function RoundWar({ entry, leagueId, ownClanTag }) {
     if (entry.is_placeholder) {
         return (
             <div className="cwl-match is-pending">
@@ -142,16 +226,7 @@ function RoundWar({ entry }) {
         );
     }
 
-    if (entry.status === 'unrelated') {
-        return (
-            <div className="cwl-match is-muted">
-                <code>{entry.war_tag}</code>
-                <span>Confronto entre outros clãs do grupo</span>
-            </div>
-        );
-    }
-
-    if (!entry.war) {
+    if (!entry.clan_tag || !entry.opponent_tag) {
         return (
             <div className="cwl-match is-pending">
                 <code>{entry.war_tag}</code>
@@ -161,19 +236,48 @@ function RoundWar({ entry }) {
     }
 
     return (
-        <div className="cwl-match is-ready">
-            <div>
-                <small>CONFRONTO DO CLÃ</small>
-                <strong>{entry.war.opponent_name}</strong>
-                <span>{entry.war.opponent_tag}</span>
+        <div className={`cwl-match cwl-match-summary ${entry.war ? 'is-own-match' : ''}`}>
+            <MatchSide
+                badge={entry.clan_badge_url}
+                destruction={entry.clan_destruction_percentage}
+                isOwn={entry.clan_tag === ownClanTag}
+                name={entry.clan_name}
+                stars={entry.clan_stars}
+                tag={entry.clan_tag}
+            />
+            <div className="cwl-match-versus">
+                <small>{warStateLabels[entry.state] ?? entry.state}</small>
+                <strong>×</strong>
+                <span>{entry.team_size ? `${entry.team_size} x ${entry.team_size}` : 'CWL'}</span>
             </div>
-            <div className="cwl-match-score">
-                <strong>{entry.war.clan_stars}</strong>
-                <span>estrelas</span>
-            </div>
-            <Link href={route('wars.show', entry.war.id)}>
-                Ver detalhes da guerra
-            </Link>
+            <MatchSide
+                badge={entry.opponent_badge_url}
+                destruction={entry.opponent_destruction_percentage}
+                isOwn={entry.opponent_tag === ownClanTag}
+                name={entry.opponent_name}
+                stars={entry.opponent_stars}
+                tag={entry.opponent_tag}
+                reverse
+            />
+            {entry.war && (
+                <Link className="cwl-match-details" href={route('cwl.wars.show', [leagueId, entry.war.id])}>
+                    Ver detalhes
+                </Link>
+            )}
+        </div>
+    );
+}
+
+function MatchSide({ badge, destruction, isOwn, name, stars, tag, reverse = false }) {
+    return (
+        <div className={`cwl-match-side ${reverse ? 'is-reverse' : ''} ${isOwn ? 'is-own' : ''}`}>
+            {badge && <img src={badge} alt="" />}
+            <span>
+                <strong>{name ?? tag}</strong>
+                <small>{tag}</small>
+                <small>{formatPercentage(destruction ?? 0)} destruição</small>
+            </span>
+            <b>{stars ?? 0}<small>★</small></b>
         </div>
     );
 }

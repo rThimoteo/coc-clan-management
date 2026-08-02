@@ -64,6 +64,30 @@ class CwlPanelTest extends TestCase
                 ->where('league.rounds.0.wars.0.war.id', $cwlWar->id));
 
         $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $primary->id])
+            ->get("/cwl/{$primaryLeague->id}/wars/{$cwlWar->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Wars/Show')
+                ->where('war.id', $cwlWar->id)
+                ->where('war.type', 'cwl')
+                ->where(
+                    'navigation.back_href',
+                    route('cwl.show', $primaryLeague),
+                )
+                ->where(
+                    'navigation.back_label',
+                    "Voltar para CWL {$primaryLeague->season}",
+                )
+                ->where('navigation.sync_route', route('cwl.sync')));
+
+        $otherLeague = $this->league($primary, '2026-06');
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $primary->id])
+            ->get("/cwl/{$otherLeague->id}/wars/{$cwlWar->id}")
+            ->assertNotFound();
+
+        $this->actingAs(User::factory()->create())
             ->withSession([ActiveClanContext::SESSION_KEY => $secondary->id])
             ->get("/cwl/{$primaryLeague->id}")
             ->assertNotFound();
@@ -113,6 +137,53 @@ class CwlPanelTest extends TestCase
                     'leagueStats.last_synced_at',
                     $syncReference->copy()->subMonth()->toJSON(),
                 ));
+    }
+
+    public function test_cwl_details_include_ranked_standings_with_victory_bonus(): void
+    {
+        $clan = $this->clan('#QGRJ2', true);
+        $league = $this->league($clan, '2026-08');
+        $league->participants()->create([
+            'clan_tag' => '#QGRJ2',
+            'name' => 'Principal',
+        ]);
+        $league->participants()->create([
+            'clan_tag' => '#V9Y20',
+            'name' => 'Rival',
+        ]);
+        $round = $league->rounds()->create(['round_number' => 1]);
+        $round->wars()->create([
+            'war_tag' => '#2PP',
+            'status' => 'synced',
+            'state' => 'warEnded',
+            'clan_tag' => '#QGRJ2',
+            'clan_name' => 'Principal',
+            'clan_stars' => 31,
+            'clan_destruction_percentage' => 98.5,
+            'opponent_tag' => '#V9Y20',
+            'opponent_name' => 'Rival',
+            'opponent_stars' => 30,
+            'opponent_destruction_percentage' => 99.1,
+            'winner_tag' => '#QGRJ2',
+            'summary_synced_at' => now(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([ActiveClanContext::SESSION_KEY => $clan->id])
+            ->get("/cwl/{$league->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('standings', 2)
+                ->where('standings.0.clan_tag', '#QGRJ2')
+                ->where('standings.0.position', 1)
+                ->where('standings.0.played', 1)
+                ->where('standings.0.wins', 1)
+                ->where('standings.0.stars', 31)
+                ->where('standings.0.bonus_stars', 10)
+                ->where('standings.0.score', 41)
+                ->where('standings.1.clan_tag', '#V9Y20')
+                ->where('standings.1.losses', 1)
+                ->where('standings.1.score', 30));
     }
 
     public function test_authorized_user_can_sync_the_active_clans_cwl(): void

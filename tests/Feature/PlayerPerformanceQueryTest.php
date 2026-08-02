@@ -147,7 +147,7 @@ class PlayerPerformanceQueryTest extends TestCase
         );
     }
 
-    public function test_it_excludes_ongoing_wars_and_wars_without_details(): void
+    public function test_it_includes_ongoing_wars_and_excludes_wars_without_details(): void
     {
         [$clan, $player] = $this->context();
         $completed = $this->war($clan, $player, 'regular', 2);
@@ -160,8 +160,10 @@ class PlayerPerformanceQueryTest extends TestCase
         $metrics = app(PlayerPerformanceQuery::class)
             ->get($clan, $player)['metrics'];
 
-        $this->assertSame(1, $metrics['wars']);
-        $this->assertSame(3.0, $metrics['average_stars']);
+        $this->assertSame(2, $metrics['wars']);
+        $this->assertSame(2, $metrics['attacks_used']);
+        $this->assertSame(4, $metrics['attacks_available']);
+        $this->assertSame(2.0, $metrics['average_stars']);
     }
 
     /**

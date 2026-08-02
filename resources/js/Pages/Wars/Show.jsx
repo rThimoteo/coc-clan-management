@@ -1,17 +1,19 @@
 import LiveWarCountdown from '@/Components/LiveWarCountdown';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const cutButton =
     'inline-flex items-center gap-2 border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 const cutPanel =
     '[clip-path:polygon(0_0,calc(100%-0.55rem)_0,100%_0.55rem,100%_100%,0.55rem_100%,0_calc(100%-0.55rem))]';
 
-export default function Show({ war, clan, isActive, isPreparation }) {
+export default function Show({ war, clan, isActive, isPreparation, navigation = null }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
     const [defenseMember, setDefenseMember] = useState(null);
+    const rosterScroller = useRef(null);
+    const rosterDrag = useRef(null);
     const clanMembers = war.members.filter((member) => member.side === 'clan');
     const opponentMembers = war.members.filter((member) => member.side === 'opponent');
     const opponentByTag = useMemo(
@@ -36,7 +38,52 @@ export default function Show({ war, clan, isActive, isPreparation }) {
             .sort((a, b) => a.attack_order - b.attack_order);
 
     const sync = () => {
-        post(route('wars.sync'), { preserveScroll: true });
+        post(navigation?.sync_route ?? route('wars.sync'), { preserveScroll: true });
+    };
+
+    const startRosterDrag = (event) => {
+        const scroller = rosterScroller.current;
+
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+
+        rosterDrag.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            scrollLeft: scroller.scrollLeft,
+            dragging: false,
+        };
+    };
+
+    const moveRosterDrag = (event) => {
+        const scroller = rosterScroller.current;
+        const drag = rosterDrag.current;
+
+        if (!scroller || !drag || drag.pointerId !== event.pointerId) return;
+
+        const deltaX = event.clientX - drag.x;
+        const deltaY = event.clientY - drag.y;
+
+        if (!drag.dragging) {
+            if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+            drag.dragging = true;
+            scroller.setPointerCapture(event.pointerId);
+            scroller.classList.add('is-dragging');
+        }
+
+        event.preventDefault();
+        scroller.scrollLeft = drag.scrollLeft - deltaX;
+    };
+
+    const stopRosterDrag = (event) => {
+        const scroller = rosterScroller.current;
+
+        if (scroller?.hasPointerCapture(event.pointerId)) {
+            scroller.releasePointerCapture(event.pointerId);
+        }
+
+        scroller?.classList.remove('is-dragging');
+        rosterDrag.current = null;
     };
 
     return (
@@ -47,8 +94,8 @@ export default function Show({ war, clan, isActive, isPreparation }) {
             <Head title={`Guerra contra ${war.opponent_name}`} />
 
             <div className="war-details-toolbar">
-                <Link href={route('wars.index')} className="text-sm font-bold text-zinc-500 hover:text-amber-300">
-                    ← Voltar para guerras
+                <Link href={navigation?.back_href ?? route('wars.index')} className="text-sm font-bold text-zinc-500 hover:text-amber-300">
+                    ← {navigation?.back_label ?? 'Voltar para guerras'}
                 </Link>
 
                 {!demoMode && ['admin', 'leader'].includes(auth.user.role) && (
@@ -58,7 +105,11 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                         disabled={processing || !clan}
                     >
                         <SyncIcon spinning={processing} />
-                        {processing ? 'Atualizando...' : 'Atualizar guerra'}
+                        {processing
+                            ? 'Atualizando...'
+                            : war.type === 'cwl'
+                                ? 'Atualizar CWL'
+                                : 'Atualizar guerra'}
                     </button>
                 )}
             </div>
@@ -144,14 +195,22 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                     </div>
                 </header>
 
-                <div className="members-table-wrap">
-                    <table className="members-table war-members-table">
+                <div
+                    className="members-table-wrap war-roster-scroll"
+                    ref={rosterScroller}
+                    onPointerDown={startRosterDrag}
+                    onPointerMove={moveRosterDrag}
+                    onPointerUp={stopRosterDrag}
+                    onPointerCancel={stopRosterDrag}
+                    aria-label="Tabela de ataques com rolagem horizontal"
+                >
+                    <table className={`members-table war-members-table ${war.type === 'cwl' ? 'is-cwl' : ''}`}>
                         <thead>
                             <tr>
                                 <th>Posição</th>
                                 <th>Membro</th>
-                                <th>Ataque 1</th>
-                                <th>Ataque 2</th>
+                                <th>{war.type === 'cwl' ? 'Ataque' : 'Ataque 1'}</th>
+                                {war.type !== 'cwl' && <th>Ataque 2</th>}
                                 <th>Defesas</th>
                             </tr>
                         </thead>
@@ -177,12 +236,14 @@ export default function Show({ war, clan, isActive, isPreparation }) {
                                                 defender={opponentByTag[attacks[0]?.defender_tag]}
                                             />
                                         </td>
-                                        <td>
-                                            <AttackResult
-                                                attack={attacks[1]}
-                                                defender={opponentByTag[attacks[1]?.defender_tag]}
-                                            />
-                                        </td>
+                                        {war.type !== 'cwl' && (
+                                            <td>
+                                                <AttackResult
+                                                    attack={attacks[1]}
+                                                    defender={opponentByTag[attacks[1]?.defender_tag]}
+                                                />
+                                            </td>
+                                        )}
                                         <td>
                                             <button
                                                 className={cutButton}

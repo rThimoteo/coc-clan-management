@@ -3,6 +3,9 @@ import {
     ChevronDown,
     LayoutDashboard,
     LogOut,
+    Menu,
+    PanelLeftClose,
+    PanelLeftOpen,
     Radio,
     ShieldCog,
     Swords,
@@ -10,6 +13,7 @@ import {
     User,
     UserCog,
     Users,
+    X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -48,6 +52,11 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
     const { auth, clanContext } = usePage().props;
     const [profileOpen, setProfileOpen] = useState(false);
     const [switchingClan, setSwitchingClan] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage.getItem('sidebar-collapsed') === 'true';
+    });
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const profileMenu = useRef(null);
 
     useEffect(() => {
@@ -61,10 +70,43 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
         return () => document.removeEventListener('mousedown', closeMenu);
     }, []);
 
+    useEffect(() => {
+        window.localStorage.setItem(
+            'sidebar-collapsed',
+            String(sidebarCollapsed),
+        );
+    }, [sidebarCollapsed]);
+
+    useEffect(() => {
+        if (!mobileSidebarOpen) return undefined;
+
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') setMobileSidebarOpen(false);
+        };
+
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => {
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [mobileSidebarOpen]);
+
+    const closeMobileSidebar = () => setMobileSidebarOpen(false);
+
     return (
-        <div className="app-shell">
-            <aside className="app-sidebar">
-                <Link href={route('dashboard')} className="app-brand">
+        <div className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${mobileSidebarOpen ? 'is-mobile-sidebar-open' : ''}`}>
+            <button
+                type="button"
+                className="app-sidebar-backdrop"
+                onClick={closeMobileSidebar}
+                aria-label="Fechar menu"
+                tabIndex={mobileSidebarOpen ? 0 : -1}
+            />
+            <aside className="app-sidebar" aria-label="Navegação da aplicação">
+                <div className="app-sidebar-heading">
+                <Link href={route('dashboard')} className="app-brand" onClick={closeMobileSidebar}>
                     <span className="app-brand-logo">
                         <img src="/images/clan_hub.png" alt="" />
                     </span>
@@ -73,6 +115,15 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                         <small>WAR CONSOLE</small>
                     </span>
                 </Link>
+                    <button
+                        type="button"
+                        className="app-sidebar-toggle app-sidebar-toggle-mobile"
+                        onClick={closeMobileSidebar}
+                        aria-label="Fechar menu"
+                    >
+                        <X />
+                    </button>
+                </div>
 
                 <div className="app-nav-label">Módulos</div>
                 <nav className="app-nav" aria-label="Menu principal">
@@ -84,6 +135,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                             <Link
                                 key={item.route}
                                 href={route(item.route)}
+                                onClick={closeMobileSidebar}
                                 className={`app-nav-item ${active ? 'is-active' : ''}`}
                             >
                                 <span className="app-nav-icon">
@@ -106,6 +158,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                         <nav className="app-nav" aria-label="Administração">
                             <Link
                                 href={route('admin.users.index')}
+                                onClick={closeMobileSidebar}
                                 className={`app-nav-item ${route().current('admin.users.*') ? 'is-active' : ''}`}
                             >
                                 <span className="app-nav-icon">
@@ -119,6 +172,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                             {auth.user.role === 'admin' && (
                                 <Link
                                     href={route('admin.clans.index')}
+                                    onClick={closeMobileSidebar}
                                     className={`app-nav-item ${route().current('admin.clans.*') ? 'is-active' : ''}`}
                                 >
                                     <span className="app-nav-icon">
@@ -147,8 +201,27 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                 </div>
             </aside>
 
+            <button
+                type="button"
+                className="app-sidebar-toggle app-sidebar-toggle-desktop"
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+                title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            >
+                {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </button>
+
             <div className="app-main">
                 <header className="app-topbar">
+                    <button
+                        type="button"
+                        className="app-mobile-menu-trigger"
+                        onClick={() => setMobileSidebarOpen(true)}
+                        aria-label="Abrir menu"
+                        aria-expanded={mobileSidebarOpen}
+                    >
+                        <Menu />
+                    </button>
                     <div className="app-topbar-context">
                         <span>WAR CONSOLE</span>
                         <i />

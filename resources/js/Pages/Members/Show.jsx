@@ -1,7 +1,7 @@
 import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 const roleLabels = {
     leader: 'Líder',
@@ -221,6 +221,8 @@ function MetricCard({ index, label, value, note, defensive = false }) {
 
 function PerformanceChart({ series, metric }) {
     const [activePoint, setActivePoint] = useState(null);
+    const chartScroller = useRef(null);
+    const dragState = useRef(null);
     const width = 900;
     const height = 260;
     const padding = 32;
@@ -269,8 +271,70 @@ function PerformanceChart({ series, metric }) {
           }
         : null;
 
+    const startChartDrag = (event) => {
+        const scroller = chartScroller.current;
+
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+
+        dragState.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            scrollLeft: scroller.scrollLeft,
+            dragging: false,
+        };
+    };
+
+    const moveChartDrag = (event) => {
+        const scroller = chartScroller.current;
+        const drag = dragState.current;
+
+        if (!scroller || !drag || drag.pointerId !== event.pointerId) return;
+
+        const deltaX = event.clientX - drag.x;
+        const deltaY = event.clientY - drag.y;
+
+        if (!drag.dragging) {
+            if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+            drag.dragging = true;
+            scroller.setPointerCapture(event.pointerId);
+            scroller.classList.add('is-dragging');
+        }
+
+        event.preventDefault();
+        scroller.scrollLeft = drag.scrollLeft - deltaX;
+    };
+
+    const stopChartDrag = (event) => {
+        const scroller = chartScroller.current;
+        const wasDragging = dragState.current?.dragging;
+
+        if (scroller?.hasPointerCapture(event.pointerId)) {
+            scroller.releasePointerCapture(event.pointerId);
+        }
+
+        scroller?.classList.remove('is-dragging');
+        dragState.current = null;
+
+        if (
+            !wasDragging &&
+            !event.target.closest?.('circle[role="button"]')
+        ) {
+            setActivePoint(null);
+        }
+    };
+
     return (
-        <div className="player-chart">
+        <div
+            className="player-chart"
+            ref={chartScroller}
+            onPointerDown={startChartDrag}
+            onPointerMove={moveChartDrag}
+            onPointerUp={stopChartDrag}
+            onPointerCancel={stopChartDrag}
+            aria-label="Gráfico rolável horizontalmente"
+        >
+            <div className="player-chart-canvas">
             <svg
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
@@ -327,6 +391,16 @@ function PerformanceChart({ series, metric }) {
                             })
                         }
                         onBlur={() => setActivePoint(null)}
+                        onPointerUp={(event) => {
+                            if (event.pointerType === 'mouse') return;
+                            setActivePoint({
+                                item,
+                                index,
+                                field: offenseField,
+                                label: 'Ataques',
+                                kind: 'offense',
+                            });
+                        }}
                     />
                 ))}
                 {defenseSeries.map(({ item, index }) => (
@@ -359,6 +433,16 @@ function PerformanceChart({ series, metric }) {
                             })
                         }
                         onBlur={() => setActivePoint(null)}
+                        onPointerUp={(event) => {
+                            if (event.pointerType === 'mouse') return;
+                            setActivePoint({
+                                item,
+                                index,
+                                field: defenseField,
+                                label: 'Defesas',
+                                kind: 'defense',
+                            });
+                        }}
                     />
                 ))}
                 {tooltip && (
@@ -382,6 +466,7 @@ function PerformanceChart({ series, metric }) {
                         <small>{formatShortDate(item.end_time)}</small>
                     </span>
                 ))}
+            </div>
             </div>
         </div>
     );
