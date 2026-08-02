@@ -9,9 +9,12 @@ export default function ActiveWarAlert({ war }) {
         return null;
     }
 
-    const destination = war.has_details
-        ? route('wars.show', war.id)
-        : route('wars.index');
+    const leagueId = war.league_round_war?.round?.clan_war_league_id;
+    const destination = !war.has_details
+        ? war.type === 'cwl' ? route('cwl.index') : route('wars.index')
+        : war.type === 'cwl' && leagueId
+            ? route('cwl.wars.show', [leagueId, war.id])
+            : route('wars.show', war.id);
     const isPreparation = war.state === 'preparation';
 
     return (

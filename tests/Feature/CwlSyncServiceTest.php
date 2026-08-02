@@ -7,6 +7,7 @@ use App\Models\ClanWarLeague;
 use App\Models\ClanWarLeagueRoundWar;
 use App\Models\War;
 use App\Services\Wars\CwlSyncService;
+use App\Services\Wars\WarSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -154,6 +155,54 @@ class CwlSyncServiceTest extends TestCase
             'clan_id' => $clan->id,
             'season' => '2026-08',
         ]);
+    }
+
+    public function test_it_reconciles_legacy_and_normalized_seasons_without_duplicating_the_war_link(): void
+    {
+        $clan = $this->clan();
+        [$war] = app(WarSyncService::class)->persistDetailedWar(
+            $clan,
+            $this->fixture('cwl_war.json'),
+            'cwl',
+        );
+        $legacy = $clan->warLeagues()->create([
+            'season' => '2026-08-02',
+            'state' => 'preparation',
+        ]);
+        $legacyRound = $legacy->rounds()->create(['round_number' => 1]);
+        $legacyRound->wars()->create([
+            'war_tag' => '#2PP',
+            'status' => 'synced',
+            'war_id' => $war->id,
+        ]);
+        $normalized = $clan->warLeagues()->create([
+            'season' => '2026-08',
+            'state' => 'preparation',
+        ]);
+        $normalized->rounds()
+            ->create(['round_number' => 1])
+            ->wars()
+            ->create([
+                'war_tag' => '#2PP',
+                'status' => 'pending',
+            ]);
+        $this->fakeCwlApi();
+
+        app(CwlSyncService::class)->sync($clan);
+
+        $this->assertDatabaseCount(ClanWarLeague::class, 1);
+        $this->assertDatabaseHas(ClanWarLeague::class, [
+            'clan_id' => $clan->id,
+            'season' => '2026-08',
+        ]);
+        $this->assertSame(
+            $war->id,
+            ClanWarLeagueRoundWar::query()
+                ->where('war_tag', '#2PP')
+                ->sole()
+                ->war_id,
+        );
+        $this->assertDatabaseCount(War::class, 1);
     }
 
     public function test_it_refreshes_a_managed_war_until_its_final_state(): void
