@@ -2,7 +2,7 @@ import InputError from '@/Components/InputError';
 import Pagination from '@/Components/Pagination';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const roleLabels = {
     admin: 'Administrador',
@@ -41,6 +41,10 @@ export default function Index({
     const [deletingUser, setDeletingUser] = useState(null);
     const [userSearch, setUserSearch] = useState(filters.search ?? '');
 
+    useEffect(() => {
+        setCopied(false);
+    }, [generatedAccess?.code]);
+
     const createForm = useForm({
         name: '',
         role_id: roles.find((role) => role.slug === 'leader')?.id ?? roles[0]?.id,
@@ -66,6 +70,7 @@ export default function Index({
             preserveScroll: true,
             onSuccess: () => {
                 createForm.reset('name');
+                setCopied(false);
                 setCreateOpen(false);
                 setCodeOpen(true);
             },
@@ -249,7 +254,7 @@ export default function Index({
                         <thead>
                             <tr>
                                 <th>Usuário</th>
-                                <th>Papel</th>
+                                <th>Função</th>
                                 <th>Contas vinculadas</th>
                                 <th>Ações</th>
                             </tr>
@@ -274,7 +279,7 @@ export default function Index({
                                                     className="text-xs font-bold text-zinc-400 underline decoration-zinc-700 underline-offset-4 hover:text-amber-300 hover:decoration-amber-500"
                                                     onClick={() => openRoleEditor(user)}
                                                 >
-                                                    Alterar papel
+                                                    Alterar função
                                                 </button>
                                             )}
                                         </div>
@@ -355,7 +360,7 @@ export default function Index({
                             <InputError message={createForm.errors.name} className="mt-2" />
                         </div>
                         <div>
-                            <label htmlFor="user-role">Papel</label>
+                            <label htmlFor="user-role">Função</label>
                             <select
                                 id="user-role"
                                 value={createForm.data.role_id}
@@ -385,13 +390,13 @@ export default function Index({
 
             {editingRole && (
                 <Modal
-                    title={`Alterar papel de ${editingRole.name}`}
+                    title={`Alterar função de ${editingRole.name}`}
                     onClose={() => setEditingRole(null)}
                     important={promotingToAdmin}
                 >
                     <form onSubmit={saveRole} className="profile-form admin-user-form">
                         <div>
-                            <label htmlFor="edit-user-role">Novo papel</label>
+                            <label htmlFor="edit-user-role">Nova função</label>
                             <select
                                 id="edit-user-role"
                                 value={roleForm.data.role_id}
@@ -446,7 +451,7 @@ export default function Index({
                                     (promotingToAdmin && !adminConfirmed)
                                 }
                             >
-                                {roleForm.processing ? 'Salvando...' : 'Salvar papel'}
+                                {roleForm.processing ? 'Salvando...' : 'Salvar função'}
                             </button>
                         </div>
                     </form>
