@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class WarSyncService
 {
+    private const WAR_LOG_END_TIME_TOLERANCE_MINUTES = 5;
+
     public function __construct(
         private readonly ClashOfClansService $clashOfClans,
     ) {}
@@ -108,7 +110,9 @@ class WarSyncService
         $payload = $this->orientPayload($clan->tag, $payload);
         $externalKey = $this->externalKey($clan->tag, $payload);
         $opponentTag = $this->clashOfClans->normalizeTag((string) data_get($payload, 'opponent.tag'));
+        $teamSize = (int) data_get($payload, 'teamSize', 0);
         $startTime = $this->parseTime(data_get($payload, 'startTime'));
+        $endTime = $this->parseTime(data_get($payload, 'endTime'));
         $war = War::query()
             ->whereBelongsTo($clan)
             ->where('external_key', $externalKey)
@@ -125,6 +129,21 @@ class WarSyncService
                 ->first();
         }
 
+        if ($war === null && $startTime === null && $endTime !== null) {
+            $war = War::query()
+                ->whereBelongsTo($clan)
+                ->where('type', $type)
+                ->whereNotNull('state')
+                ->where('opponent_tag', $opponentTag)
+                ->where('team_size', $teamSize)
+                ->whereBetween('end_time', [
+                    $endTime->subMinutes(self::WAR_LOG_END_TIME_TOLERANCE_MINUTES),
+                    $endTime->addMinutes(self::WAR_LOG_END_TIME_TOLERANCE_MINUTES),
+                ])
+                ->latest('id')
+                ->first();
+        }
+
         $war ??= new War(['clan_id' => $clan->id]);
         $wasRecentlyCreated = ! $war->exists;
 
@@ -135,7 +154,12 @@ class WarSyncService
         ];
 
         if ($war->has_details && ! $detailed) {
-            unset($attributes['has_details']);
+            unset(
+                $attributes['state'],
+                $attributes['preparation_start_time'],
+                $attributes['start_time'],
+                $attributes['has_details'],
+            );
         }
 
         $war->fill($attributes)->save();

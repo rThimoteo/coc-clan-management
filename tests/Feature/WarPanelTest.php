@@ -161,6 +161,76 @@ class WarPanelTest extends TestCase
         ]);
     }
 
+    public function test_finished_war_summary_reconciles_a_one_second_end_time_difference(): void
+    {
+        config([
+            'services.clash_of_clans.base_url' => 'https://api.clashofclans.test/v1',
+            'services.clash_of_clans.token' => 'api-token',
+            'services.clash_of_clans.demo_mode' => false,
+        ]);
+
+        $clan = Clan::query()->create(['tag' => '#QGRJ2']);
+        $sync = app(WarSyncService::class);
+        $sync->persistDetailedWar($clan, [
+            'state' => 'warEnded',
+            'result' => 'lose',
+            'preparationStartTime' => '20260730T013816.000Z',
+            'startTime' => '20260731T023816.000Z',
+            'endTime' => '20260801T031001.000Z',
+            'teamSize' => 45,
+            'clan' => [
+                'tag' => '#QGRJ2',
+                'name' => 'Nosso Clã',
+                'stars' => 100,
+                'destructionPercentage' => 95,
+                'members' => [],
+            ],
+            'opponent' => [
+                'tag' => '#2JLRVG8CL',
+                'name' => 'O. P. HUNTERS',
+                'stars' => 101,
+                'destructionPercentage' => 96,
+                'members' => [],
+            ],
+        ]);
+        $warId = War::query()->sole()->id;
+
+        Http::fake([
+            'api.clashofclans.test/v1/clans/*/warlog*' => Http::response([
+                'items' => [[
+                    'result' => 'lose',
+                    'endTime' => '20260801T031002.000Z',
+                    'teamSize' => 45,
+                    'clan' => [
+                        'tag' => '#QGRJ2',
+                        'name' => 'Nosso Clã',
+                        'stars' => 100,
+                        'destructionPercentage' => 95,
+                    ],
+                    'opponent' => [
+                        'tag' => '#2JLRVG8CL',
+                        'name' => 'O. P. HUNTERS',
+                        'stars' => 101,
+                        'destructionPercentage' => 96,
+                    ],
+                ]],
+            ]),
+            'api.clashofclans.test/v1/clans/*/currentwar' => Http::response(['state' => 'notInWar']),
+        ]);
+
+        $sync->sync($clan);
+
+        $storedWar = War::query()->sole();
+        $this->assertSame($warId, $storedWar->id);
+        $this->assertSame('warEnded', $storedWar->state);
+        $this->assertSame('2026-07-31 02:38:16', $storedWar->start_time->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-08-01 03:10:02', $storedWar->end_time->format('Y-m-d H:i:s'));
+        $this->assertSame(
+            hash('sha256', '#QGRJ2|#2JLRVG8CL|20260801T031002.000Z'),
+            $storedWar->external_key,
+        );
+    }
+
     public function test_war_list_and_detailed_page_are_available(): void
     {
         $this->fakeWarApi();
