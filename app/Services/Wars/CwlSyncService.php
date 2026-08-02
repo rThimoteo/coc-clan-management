@@ -217,16 +217,11 @@ class CwlSyncService
     private function persistGroup(Clan $clan, CwlLeagueGroup $group): ClanWarLeague
     {
         return DB::transaction(function () use ($clan, $group): ClanWarLeague {
-            $league = ClanWarLeague::query()->updateOrCreate(
-                [
-                    'clan_id' => $clan->id,
-                    'season' => $group->season,
-                ],
-                [
-                    'state' => $group->state,
-                    'synced_at' => now(),
-                ],
-            );
+            $league = $this->reconcileSeason($clan, $group->season);
+            $league->update([
+                'state' => $group->state,
+                'synced_at' => now(),
+            ]);
 
             $participantTags = collect($group->clans)->pluck('tag');
             $league->participants()
@@ -283,6 +278,145 @@ class CwlSyncService
 
             return $league;
         });
+    }
+
+    private function reconcileSeason(Clan $clan, string $season): ClanWarLeague
+    {
+        $candidates = ClanWarLeague::query()
+            ->whereBelongsTo($clan)
+            ->where(function ($query) use ($season): void {
+                $query->where('season', $season)
+                    ->orWhere('season', 'like', $season.'-%');
+            })
+            ->with(['participants', 'rounds.wars'])
+            ->orderByRaw('CASE WHEN season = ? THEN 0 ELSE 1 END', [$season])
+            ->orderBy('id')
+            ->get();
+
+        if ($candidates->isEmpty()) {
+            return ClanWarLeague::query()->create([
+                'clan_id' => $clan->id,
+                'season' => $season,
+                'state' => 'preparation',
+            ]);
+        }
+
+        $league = $candidates->shift();
+
+        if ($league->season !== $season) {
+            $league->update(['season' => $season]);
+        }
+
+        foreach ($candidates as $duplicate) {
+            $this->mergeLeague($league, $duplicate);
+        }
+
+        return $league->fresh();
+    }
+
+    private function mergeLeague(
+        ClanWarLeague $league,
+        ClanWarLeague $duplicate,
+    ): void {
+        foreach ($duplicate->participants as $participant) {
+            $league->participants()->updateOrCreate(
+                ['clan_tag' => $participant->clan_tag],
+                [
+                    'name' => $participant->name,
+                    'clan_level' => $participant->clan_level,
+                    'badge_url' => $participant->badge_url,
+                ],
+            );
+        }
+
+        foreach ($duplicate->rounds as $sourceRound) {
+            $targetRound = $league->rounds()->firstOrCreate([
+                'round_number' => $sourceRound->round_number,
+            ]);
+
+            foreach ($sourceRound->wars->where('is_placeholder', false) as $sourceEntry) {
+                $targetEntry = $targetRound->wars()->firstOrCreate(
+                    ['war_tag' => $sourceEntry->war_tag],
+                    ['is_placeholder' => false, 'status' => 'pending'],
+                );
+
+                $this->mergeRoundWar($targetEntry, $sourceEntry);
+            }
+        }
+
+        if ($duplicate->has_summary && ! $league->has_summary) {
+            $league->update($duplicate->only([
+                'has_summary',
+                'end_time',
+                'team_size',
+                'attacks_per_member',
+                'battle_modifier',
+                'clan_badge_url',
+                'clan_attacks',
+                'clan_stars',
+                'clan_destruction_percentage',
+                'opponent_badge_url',
+                'opponent_stars',
+                'opponent_destruction_percentage',
+            ]));
+        }
+
+        $duplicate->delete();
+    }
+
+    private function mergeRoundWar(
+        ClanWarLeagueRoundWar $target,
+        ClanWarLeagueRoundWar $source,
+    ): void {
+        $summaryFields = [
+            'state',
+            'team_size',
+            'preparation_start_time',
+            'start_time',
+            'end_time',
+            'clan_tag',
+            'clan_name',
+            'clan_badge_url',
+            'clan_attacks',
+            'clan_stars',
+            'clan_destruction_percentage',
+            'opponent_tag',
+            'opponent_name',
+            'opponent_badge_url',
+            'opponent_attacks',
+            'opponent_stars',
+            'opponent_destruction_percentage',
+            'winner_tag',
+            'summary_synced_at',
+        ];
+        $sourceIsNewer = $source->summary_synced_at && (
+            ! $target->summary_synced_at ||
+            $source->summary_synced_at->greaterThan($target->summary_synced_at)
+        );
+
+        if ($sourceIsNewer || ! $target->summary_synced_at) {
+            $target->fill($source->only($summaryFields));
+        }
+
+        if (
+            $target->status === 'pending' &&
+            in_array($source->status, ['synced', 'unrelated'], true)
+        ) {
+            $target->status = $source->status;
+        }
+
+        if ($source->war_id !== null) {
+            $sourceWarId = $source->war_id;
+
+            if ($target->war_id === null) {
+                $source->update(['war_id' => null]);
+                $target->war_id = $sourceWarId;
+            } elseif ($target->war_id === $sourceWarId) {
+                $source->update(['war_id' => null]);
+            }
+        }
+
+        $target->save();
     }
 
     /**

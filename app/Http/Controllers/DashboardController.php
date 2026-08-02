@@ -35,6 +35,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'activeWar' => (clone $reportableWars)
+                ->with('leagueRoundWar.round:id,clan_war_league_id')
                 ->active()
                 ->latest('end_time')
                 ->first(),
@@ -53,6 +54,7 @@ class DashboardController extends Controller
                     : null,
             ],
             'recentWars' => (clone $reportableWars)
+                ->with('leagueRoundWar.round:id,clan_war_league_id')
                 ->latest('end_time')
                 ->limit(5)
                 ->get(),

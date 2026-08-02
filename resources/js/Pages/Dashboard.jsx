@@ -99,7 +99,7 @@ export default function Dashboard({ activeWar, clan, metrics, recentWars }) {
                                 {war.has_details ? (
                                     <Link
                                         className={`inline-flex justify-center border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-amber-300 transition hover:bg-amber-400 hover:text-zinc-950 sm:justify-self-end ${cutPanel}`}
-                                        href={route('wars.show', war.id)}
+                                        href={warDetailsRoute(war)}
                                     >
                                         Detalhes
                                     </Link>
@@ -127,6 +127,16 @@ function resultClass(result) {
     }
 
     return 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400';
+}
+
+function warDetailsRoute(war) {
+    const leagueId = war.league_round_war?.round?.clan_war_league_id;
+
+    if (war.type === 'cwl' && leagueId) {
+        return route('cwl.wars.show', [leagueId, war.id]);
+    }
+
+    return route('wars.show', war.id);
 }
 
 function resultLabel(result, state) {

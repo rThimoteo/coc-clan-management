@@ -122,6 +122,45 @@ class DashboardTest extends TestCase
                 ->where('recentWars.0.opponent_name', 'Rival secundário'));
     }
 
+    public function test_dashboard_exposes_the_cwl_context_for_an_active_league_war(): void
+    {
+        $clan = Clan::query()->create([
+            'tag' => '#QGRJ2',
+            'is_default' => true,
+        ]);
+        $league = $clan->warLeagues()->create([
+            'season' => '2026-08',
+            'state' => 'preparation',
+        ]);
+        $round = $league->rounds()->create(['round_number' => 1]);
+        $war = $this->createWar(
+            $clan,
+            'win',
+            now()->addDay(),
+            'Rival CWL',
+        );
+        $war->update([
+            'type' => 'cwl',
+            'state' => 'preparation',
+        ]);
+        $round->wars()->create([
+            'war_tag' => '#CWL01',
+            'status' => 'synced',
+            'war_id' => $war->id,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('activeWar.id', $war->id)
+                ->where('activeWar.type', 'cwl')
+                ->where(
+                    'activeWar.league_round_war.round.clan_war_league_id',
+                    $league->id,
+                ));
+    }
+
     private function createWar(Clan $clan, string $result, mixed $endTime, string $opponent): War
     {
         return War::query()->create([
