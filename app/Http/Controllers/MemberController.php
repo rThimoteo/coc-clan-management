@@ -17,8 +17,11 @@ use RuntimeException;
 
 class MemberController extends Controller
 {
-    public function index(Request $request, ActiveClanContext $context): Response
-    {
+    public function index(
+        Request $request,
+        ActiveClanContext $context,
+        PlayerPerformanceQuery $performance,
+    ): Response {
         $clan = $context->active($request);
         $filters = [
             'search' => trim($request->string('search')->toString()),
@@ -72,6 +75,30 @@ class MemberController extends Controller
             default => $members->orderBy('players.name', $filters['direction']),
         };
 
+        $members = $members
+            ->with('status:id,slug')
+            ->paginate(20)
+            ->withQueryString();
+        $performanceSummaries = $clan
+            ? $performance->summaries(
+                $clan,
+                $members->getCollection()->pluck('player_id')->all(),
+                10,
+            )
+            : [];
+        $members->getCollection()->transform(function (ClanMembership $membership) use ($performanceSummaries): ClanMembership {
+            $membership->setAttribute(
+                'performance_summary',
+                $performanceSummaries[$membership->player_id] ?? [
+                    'wars' => 0,
+                    'attacks' => 0,
+                    'average_stars' => 0,
+                ],
+            );
+
+            return $membership;
+        });
+
         return Inertia::render('Members/Index', [
             'memberStats' => [
                 'total' => (clone $allMembers)->count(),
@@ -104,10 +131,8 @@ class MemberController extends Controller
                     ->orderBy('role')
                     ->pluck('role'),
             ],
-            'members' => $members
-                ->with('status:id,slug')
-                ->paginate(20)
-                ->withQueryString(),
+            'members' => $members,
+            'performanceWindow' => 10,
             'clan' => $clan,
         ]);
     }

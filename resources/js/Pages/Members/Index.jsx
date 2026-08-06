@@ -27,6 +27,7 @@ export default function Index({
     memberStats,
     filters,
     filterOptions,
+    performanceWindow,
 }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
@@ -250,6 +251,9 @@ export default function Index({
                                         onSort={sortMembers}
                                     />
                                     <th>Status</th>
+                                    <th>
+                                        Média · {performanceWindow} guerras
+                                    </th>
                                     <th />
                                 </tr>
                             </thead>
@@ -278,6 +282,12 @@ export default function Index({
                                                 {statusLabels[member.status.slug]}
                                             </span>
                                         </td>
+                                        <td>
+                                            <PerformanceSummary
+                                                summary={member.performance_summary}
+                                                window={performanceWindow}
+                                            />
+                                        </td>
                                         <td className="war-action-cell">
                                             <Link
                                                 className={actionLink}
@@ -298,6 +308,30 @@ export default function Index({
                 <Pagination pagination={members} />
             </section>
         </AuthenticatedLayout>
+    );
+}
+
+function PerformanceSummary({ summary, window }) {
+    if (!summary?.wars) {
+        return (
+            <span className="member-performance is-empty">
+                <strong>—</strong>
+                <small>sem guerras</small>
+            </span>
+        );
+    }
+
+    return (
+        <span
+            className="member-performance"
+            title={`Média de ${summary.attacks} ataques em ${summary.wars} das últimas ${window} guerras`}
+        >
+            <strong>{formatStars(summary.average_stars)} ★</strong>
+            <small>
+                {summary.wars} {summary.wars === 1 ? 'guerra' : 'guerras'} ·{' '}
+                {summary.attacks} {summary.attacks === 1 ? 'ataque' : 'ataques'}
+            </small>
+        </span>
     );
 }
 
@@ -337,6 +371,13 @@ function formatDate(value) {
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(value));
+}
+
+function formatStars(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 2,
+    }).format(value ?? 0);
 }
 
 function SyncIcon({ spinning }) {

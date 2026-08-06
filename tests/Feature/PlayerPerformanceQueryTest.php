@@ -166,6 +166,30 @@ class PlayerPerformanceQueryTest extends TestCase
         $this->assertSame(2.0, $metrics['average_stars']);
     }
 
+    public function test_list_summaries_use_only_each_players_latest_ten_wars(): void
+    {
+        [$clan, $player] = $this->context();
+
+        foreach (range(1, 11) as $daysAgo) {
+            $war = $this->war($clan, $player, 'regular', $daysAgo);
+            $this->attack(
+                $war,
+                $player,
+                true,
+                1,
+                $daysAgo === 11 ? 0 : 3,
+                100,
+            );
+        }
+
+        $summary = app(PlayerPerformanceQuery::class)
+            ->summaries($clan, [$player->id], 10)[$player->id];
+
+        $this->assertSame(10, $summary['wars']);
+        $this->assertSame(10, $summary['attacks']);
+        $this->assertSame(3.0, $summary['average_stars']);
+    }
+
     /**
      * @return array{Clan, Player}
      */

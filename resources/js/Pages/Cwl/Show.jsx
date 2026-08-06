@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 
 const stateLabels = {
     preparation: 'Preparação',
@@ -19,6 +20,24 @@ const stateBadge =
     'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 
 export default function Show({ clan, league, standings }) {
+    const [openRounds, setOpenRounds] = useState(
+        () => new Set(getInitiallyOpenRoundIds(league.rounds)),
+    );
+
+    const setRoundOpen = (roundId, isOpen) => {
+        setOpenRounds((current) => {
+            const next = new Set(current);
+
+            if (isOpen) {
+                next.add(roundId);
+            } else {
+                next.delete(roundId);
+            }
+
+            return next;
+        });
+    };
+
     return (
         <AuthenticatedLayout
             header={`CWL ${formatSeason(league.season)}`}
@@ -112,20 +131,42 @@ export default function Show({ clan, league, standings }) {
                     </div>
                 ) : (
                     <div className="cwl-rounds">
-                        {league.rounds.map((round) => (
-                            <section key={round.id}>
-                                <header>
-                                    <span>
-                                        {String(round.round_number).padStart(
-                                            2,
-                                            '0',
-                                        )}
+                        {league.rounds.map((round) => {
+                            const ownWar = round.wars.find(
+                                (entry) =>
+                                    entry.clan_tag === clan.tag ||
+                                    entry.opponent_tag === clan.tag,
+                            );
+                            const summary = getRoundSummary(ownWar, clan.tag);
+
+                            return (
+                            <details
+                                className={`cwl-round ${summary.tone}`}
+                                key={round.id}
+                                onToggle={(event) =>
+                                    setRoundOpen(round.id, event.currentTarget.open)
+                                }
+                                open={openRounds.has(round.id)}
+                            >
+                                <summary>
+                                    <span className="cwl-round-number">
+                                        {String(round.round_number).padStart(2, '0')}
                                     </span>
-                                    <strong>
-                                        Rodada {round.round_number}
-                                    </strong>
-                                </header>
-                                <div>
+                                    <span className="cwl-round-title">
+                                        <strong>Rodada {round.round_number}</strong>
+                                        <small>{summary.label}</small>
+                                    </span>
+                                    <span className="cwl-round-score">
+                                        <small>Nosso resultado</small>
+                                        <strong>{summary.score}</strong>
+                                    </span>
+                                    <span className="cwl-round-opponent">
+                                        <small>{summary.opponentLabel}</small>
+                                        <strong>{summary.opponent}</strong>
+                                    </span>
+                                    <span className="cwl-round-chevron" aria-hidden="true">⌄</span>
+                                </summary>
+                                <div className="cwl-round-content">
                                     {round.wars.every(
                                         (entry) => entry.is_placeholder,
                                     ) ? (
@@ -143,8 +184,9 @@ export default function Show({ clan, league, standings }) {
                                         ))
                                     )}
                                 </div>
-                            </section>
-                        ))}
+                            </details>
+                            );
+                        })}
                     </div>
                 )}
             </section>
@@ -241,6 +283,7 @@ function RoundWar({ entry, leagueId, ownClanTag }) {
                 badge={entry.clan_badge_url}
                 destruction={entry.clan_destruction_percentage}
                 isOwn={entry.clan_tag === ownClanTag}
+                outcome={getSideOutcome(entry, 'clan')}
                 name={entry.clan_name}
                 stars={entry.clan_stars}
                 tag={entry.clan_tag}
@@ -249,28 +292,32 @@ function RoundWar({ entry, leagueId, ownClanTag }) {
                 <small>{warStateLabels[entry.state] ?? entry.state}</small>
                 <strong>×</strong>
                 <span>{entry.team_size ? `${entry.team_size} x ${entry.team_size}` : 'CWL'}</span>
+                {entry.war && (
+                    <Link
+                        className="cwl-match-details"
+                        href={route('cwl.wars.show', [leagueId, entry.war.id])}
+                    >
+                        Ver detalhes
+                    </Link>
+                )}
             </div>
             <MatchSide
                 badge={entry.opponent_badge_url}
                 destruction={entry.opponent_destruction_percentage}
                 isOwn={entry.opponent_tag === ownClanTag}
+                outcome={getSideOutcome(entry, 'opponent')}
                 name={entry.opponent_name}
                 stars={entry.opponent_stars}
                 tag={entry.opponent_tag}
                 reverse
             />
-            {entry.war && (
-                <Link className="cwl-match-details" href={route('cwl.wars.show', [leagueId, entry.war.id])}>
-                    Ver detalhes
-                </Link>
-            )}
         </div>
     );
 }
 
-function MatchSide({ badge, destruction, isOwn, name, stars, tag, reverse = false }) {
+function MatchSide({ badge, destruction, isOwn, name, outcome, stars, tag, reverse = false }) {
     return (
-        <div className={`cwl-match-side ${reverse ? 'is-reverse' : ''} ${isOwn ? 'is-own' : ''}`}>
+        <div className={`cwl-match-side ${reverse ? 'is-reverse' : ''} ${isOwn ? 'is-own' : ''} ${outcome ? `is-${outcome}` : ''}`}>
             {badge && <img src={badge} alt="" />}
             <span>
                 <strong>{name ?? tag}</strong>
@@ -280,6 +327,55 @@ function MatchSide({ badge, destruction, isOwn, name, stars, tag, reverse = fals
             <b>{stars ?? 0}<small>★</small></b>
         </div>
     );
+}
+
+function getSideOutcome(entry, side) {
+    if (!['warEnded', 'ended'].includes(entry.state)) return null;
+    if (!entry.winner_tag) return 'draw';
+
+    const tag = side === 'clan' ? entry.clan_tag : entry.opponent_tag;
+    return entry.winner_tag === tag ? 'winner' : 'loser';
+}
+
+function getInitiallyOpenRoundIds(rounds) {
+    const current = rounds.find((round) => roundHasState(round, 'inWar'))
+        ?? rounds.find((round) => roundHasState(round, 'preparation'));
+
+    return current ? [current.id] : [];
+}
+
+function roundHasState(round, state) {
+    return round.wars.some(
+        (entry) => entry.state === state || entry.war?.state === state,
+    );
+}
+
+function getRoundSummary(entry, ownClanTag) {
+    if (!entry?.clan_tag || !entry?.opponent_tag) {
+        return {
+            label: 'Aguardando confronto',
+            opponentLabel: 'Oponente',
+            opponent: 'A definir',
+            score: '—',
+            tone: 'is-pending',
+        };
+    }
+
+    const ownIsClan = entry.clan_tag === ownClanTag;
+    const ownStars = ownIsClan ? entry.clan_stars : entry.opponent_stars;
+    const rivalStars = ownIsClan ? entry.opponent_stars : entry.clan_stars;
+    const opponent = ownIsClan ? entry.opponent_name : entry.clan_name;
+    const ended = ['warEnded', 'ended'].includes(entry.state);
+    const won = ended && entry.winner_tag === ownClanTag;
+    const drew = ended && !entry.winner_tag;
+
+    return {
+        label: ended ? (drew ? 'Empate' : won ? 'Vitória' : 'Derrota') : warStateLabels[entry.state] ?? 'Aguardando',
+        opponentLabel: 'Oponente',
+        opponent: opponent ?? 'Clã adversário',
+        score: ownStars == null || rivalStars == null ? '—' : `${ownStars} × ${rivalStars}`,
+        tone: ended ? (drew ? 'is-draw' : won ? 'is-win' : 'is-loss') : 'is-live',
+    };
 }
 
 function formatSeason(season) {
