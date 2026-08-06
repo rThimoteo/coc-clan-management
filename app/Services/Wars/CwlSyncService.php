@@ -103,6 +103,33 @@ class CwlSyncService
         return $summary;
     }
 
+    public function refreshWar(Clan $clan, ClanWarLeagueRoundWar $entry): bool
+    {
+        $belongsToClan = $entry->round()
+            ->whereHas('league', fn ($query) => $query
+                ->where('clan_id', $clan->id))
+            ->exists();
+
+        if (! $belongsToClan || $entry->is_placeholder || $entry->war_tag === null) {
+            return false;
+        }
+
+        $payload = $this->clashOfClans->clanWarLeagueWar($entry->war_tag);
+
+        if ($payload === null || ! $this->containsClan($payload, $clan->tag)) {
+            return false;
+        }
+
+        $this->persistMatchSummary($entry, $payload);
+        [$war] = $this->wars->persistDetailedWar($clan, $payload, 'cwl');
+        $entry->update([
+            'war_id' => $war->id,
+            'status' => 'synced',
+        ]);
+
+        return true;
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */
