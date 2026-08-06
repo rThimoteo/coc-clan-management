@@ -132,7 +132,63 @@ class ActiveWarRefreshTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_it_prioritizes_an_in_war_cwl_over_a_regular_preparation(): void
+    public function test_cwl_match_gets_one_final_refresh_after_it_ends(): void
+    {
+        config([
+            'services.clash_of_clans.base_url' => 'https://api.clashofclans.test/v1',
+            'services.clash_of_clans.token' => 'api-token',
+            'services.clash_of_clans.demo_mode' => false,
+        ]);
+        $clan = Clan::query()->create(['tag' => '#QGRJ2']);
+        $league = ClanWarLeague::query()->create([
+            'clan_id' => $clan->id,
+            'season' => '2026-08',
+            'state' => 'inWar',
+        ]);
+        $round = $league->rounds()->create(['round_number' => 1]);
+        $entry = $round->wars()->create([
+            'war_tag' => '#WAR1',
+            'is_placeholder' => false,
+            'status' => 'unrelated',
+            'state' => 'inWar',
+        ]);
+        Http::fake([
+            'api.clashofclans.test/v1/clanwarleagues/wars/*' => Http::response([
+                'state' => 'warEnded',
+                'teamSize' => 15,
+                'preparationStartTime' => '20260804T120000.000Z',
+                'startTime' => '20260805T120000.000Z',
+                'endTime' => '20260806T120000.000Z',
+                'clan' => [
+                    'tag' => '#OTHER1',
+                    'name' => 'Outro 1',
+                    'stars' => 30,
+                    'destructionPercentage' => 90,
+                ],
+                'opponent' => [
+                    'tag' => '#OTHER2',
+                    'name' => 'Outro 2',
+                    'stars' => 31,
+                    'destructionPercentage' => 91,
+                ],
+            ]),
+        ]);
+        $refresh = app(ActiveWarRefreshService::class);
+
+        $first = $refresh->refreshAll();
+        $this->assertSame(1, $first['checked']);
+        $this->assertNull($entry->fresh()->final_synced_at);
+
+        $second = $refresh->refreshAll();
+        $this->assertSame(1, $second['checked']);
+        $this->assertNotNull($entry->fresh()->final_synced_at);
+
+        $third = $refresh->refreshAll();
+        $this->assertSame(0, $third['checked']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_it_refreshes_every_in_war_match_and_ignores_a_future_regular_preparation(): void
     {
         $clan = Clan::query()->create(['tag' => '#QGRJ2']);
         $this->war($clan, 'regular', 'preparation');
@@ -150,6 +206,12 @@ class ActiveWarRefreshTest extends TestCase
             'state' => 'inWar',
             'war_id' => $cwlWar->id,
         ]);
+        $otherEntry = $round->wars()->create([
+            'war_tag' => '#WAR2',
+            'is_placeholder' => false,
+            'status' => 'unrelated',
+            'state' => 'inWar',
+        ]);
         $clash = Mockery::mock(ClashOfClansService::class);
         $wars = Mockery::mock(WarSyncService::class);
         $cwl = Mockery::mock(CwlSyncService::class);
@@ -158,13 +220,19 @@ class ActiveWarRefreshTest extends TestCase
         $cwl->shouldReceive('refreshWar')
             ->once()
             ->withArgs(fn (Clan $argument, $roundWar): bool => $argument->is($clan) && $roundWar->is($entry))
-            ->andReturnTrue();
+            ->andReturnTrue()
+            ->ordered();
+        $cwl->shouldReceive('refreshWar')
+            ->once()
+            ->withArgs(fn (Clan $argument, $roundWar): bool => $argument->is($clan) && $roundWar->is($otherEntry))
+            ->andReturnTrue()
+            ->ordered();
 
         $summary = (new ActiveWarRefreshService($clash, $wars, $cwl))
             ->refreshAll();
 
-        $this->assertSame(1, $summary['checked']);
-        $this->assertSame(1, $summary['updated']);
+        $this->assertSame(2, $summary['checked']);
+        $this->assertSame(2, $summary['updated']);
     }
 
     private function war(Clan $clan, string $type, string $state): War

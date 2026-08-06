@@ -15,11 +15,11 @@ const warStateLabels = {
     ended: 'Encerrada',
 };
 
-const CWL_ROUNDS = 7;
 const stateBadge =
     'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 
-export default function Show({ clan, league, standings }) {
+export default function Show({ clan, league, memberPerformance, standings }) {
+    const [activeTab, setActiveTab] = useState('standings');
     const [openRounds, setOpenRounds] = useState(
         () => new Set(getInitiallyOpenRoundIds(league.rounds)),
     );
@@ -62,66 +62,25 @@ export default function Show({ clan, league, standings }) {
                     </div>
                 </header>
 
-                <div className="grid gap-px bg-white/10 text-sm text-zinc-500 sm:grid-cols-4 [&>span]:bg-zinc-900/80 [&>span]:p-4 [&_strong]:mr-1.5 [&_strong]:font-display [&_strong]:text-xl [&_strong]:font-black [&_strong]:text-amber-300">
-                    <span>
-                        <strong>{league.participants.length}</strong>
-                        clãs
-                    </span>
-                    <span>
-                        <strong>{league.rounds.length}</strong>
-                        rodadas
-                    </span>
-                    <span>
-                        <strong>{league.clan_stars}</strong>
-                        estrelas no resumo
-                    </span>
-                    <span>
-                        <strong>{formatAttacks(league)}</strong>
-                        ataques
-                    </span>
+                <div className="cwl-tabs" role="tablist" aria-label="Detalhes da CWL">
+                    <TabButton activeTab={activeTab} id="standings" onSelect={setActiveTab}>
+                        Classificação
+                    </TabButton>
+                    <TabButton activeTab={activeTab} id="rounds" onSelect={setActiveTab}>
+                        Rodadas
+                    </TabButton>
+                    <TabButton activeTab={activeTab} id="performance" onSelect={setActiveTab}>
+                        Meu clã
+                    </TabButton>
                 </div>
 
-                {league.has_summary && (
-                    <div className="cwl-summary-strip">
-                        <span>
-                            Destruição média
-                            <strong>
-                                {formatPercentage(
-                                    league.clan_destruction_percentage /
-                                        CWL_ROUNDS,
-                                )}
-                            </strong>
-                        </span>
-                        <span>
-                            Tamanho
-                            <strong>
-                                {league.team_size
-                                    ? `${league.team_size}x${league.team_size}`
-                                    : '—'}
-                            </strong>
-                        </span>
-                        <span>
-                            Encerramento
-                            <strong>{formatDate(league.end_time)}</strong>
-                        </span>
+                {activeTab === 'standings' && (
+                    <div id="cwl-panel-standings" role="tabpanel" aria-labelledby="cwl-tab-standings">
+                        <Standings standings={standings} ownClanTag={clan.tag} />
                     </div>
                 )}
 
-                <div className="cwl-participants">
-                    {league.participants.map((participant) => (
-                        <span key={participant.id}>
-                            {participant.badge_url && (
-                                <img src={participant.badge_url} alt="" />
-                            )}
-                            {participant.name}
-                            <small>{participant.clan_tag}</small>
-                        </span>
-                    ))}
-                </div>
-
-                <Standings standings={standings} ownClanTag={clan.tag} />
-
-                {league.rounds.length === 0 ? (
+                {activeTab === 'rounds' && (league.rounds.length === 0 ? (
                     <div className="cwl-detail-unavailable">
                         <strong>Resumo preservado.</strong>
                         <p>
@@ -130,7 +89,15 @@ export default function Show({ clan, league, standings }) {
                         </p>
                     </div>
                 ) : (
-                    <div className="cwl-rounds">
+                    <div className="cwl-tab-panel" id="cwl-panel-rounds" role="tabpanel" aria-labelledby="cwl-tab-rounds">
+                        <header className="cwl-tab-heading">
+                            <div>
+                                <p className="section-kicker">MAPA DE CONFRONTOS</p>
+                                <h3>Rodadas da liga</h3>
+                            </div>
+                            <small>{league.rounds.length} rodadas registradas</small>
+                        </header>
+                        <div className="cwl-rounds">
                         {league.rounds.map((round) => {
                             const ownWar = round.wars.find(
                                 (entry) =>
@@ -187,10 +154,109 @@ export default function Show({ clan, league, standings }) {
                             </details>
                             );
                         })}
+                        </div>
                     </div>
+                ))}
+
+                {activeTab === 'performance' && (
+                    <MemberPerformance
+                        clanName={clan.name ?? clan.tag}
+                        members={memberPerformance}
+                    />
                 )}
             </section>
         </AuthenticatedLayout>
+    );
+}
+
+function TabButton({ activeTab, children, id, onSelect }) {
+    const active = activeTab === id;
+
+    return (
+        <button
+            aria-controls={`cwl-panel-${id}`}
+            aria-selected={active}
+            className={active ? 'is-active' : undefined}
+            id={`cwl-tab-${id}`}
+            onClick={() => onSelect(id)}
+            onKeyDown={(event) => navigateTabs(event, id, onSelect)}
+            role="tab"
+            tabIndex={active ? 0 : -1}
+        >
+            {children}
+        </button>
+    );
+}
+
+function navigateTabs(event, currentId, onSelect) {
+    const tabs = ['standings', 'rounds', 'performance'];
+    const currentIndex = tabs.indexOf(currentId);
+    const targetIndex = {
+        ArrowLeft: (currentIndex - 1 + tabs.length) % tabs.length,
+        ArrowRight: (currentIndex + 1) % tabs.length,
+        Home: 0,
+        End: tabs.length - 1,
+    }[event.key];
+
+    if (targetIndex === undefined) return;
+
+    event.preventDefault();
+    const target = tabs[targetIndex];
+    onSelect(target);
+    requestAnimationFrame(() => document.getElementById(`cwl-tab-${target}`)?.focus());
+}
+
+function MemberPerformance({ clanName, members }) {
+    return (
+        <section className="cwl-member-performance" id="cwl-panel-performance" role="tabpanel" aria-labelledby="cwl-tab-performance">
+            <header className="cwl-tab-heading">
+                <div>
+                    <p className="section-kicker">DESEMPENHO NESTA CWL</p>
+                    <h3>{clanName}</h3>
+                </div>
+                <small>Somente guerras desta temporada</small>
+            </header>
+
+            {members.length === 0 ? (
+                <div className="cwl-detail-unavailable">
+                    <strong>Nenhum desempenho disponível.</strong>
+                    <p>Os membros aparecerão após a primeira guerra detalhada desta CWL.</p>
+                </div>
+            ) : (
+                <div className="cwl-member-performance-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Membro</th>
+                                <th>Estrelas</th>
+                                <th>Defesa</th>
+                                <th>Destruição</th>
+                                <th>Ataques</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {members.map((member, index) => (
+                                <tr key={member.player_tag}>
+                                    <td><strong>{index + 1}</strong></td>
+                                    <td>
+                                        <strong>{member.name}</strong>
+                                        <small>{member.player_tag}</small>
+                                    </td>
+                                    <td className="is-attack-stars">{member.stars} ★</td>
+                                    <td className="is-defense-stars">{member.defensive_stars} ★</td>
+                                    <td className="is-destruction">{formatNumber(member.destruction)}</td>
+                                    <td>
+                                        <strong>{member.attacks_made}</strong>
+                                        <span> / {member.attacks_available}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -390,17 +456,8 @@ function formatPercentage(value) {
     }).format(value)}%`;
 }
 
-function formatDate(value) {
-    return new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-    }).format(new Date(value));
-}
-
-function formatAttacks(league) {
-    if (league.clan_attacks === null || !league.team_size) {
-        return '—';
-    }
-
-    return `${league.clan_attacks}/${league.team_size * CWL_ROUNDS}`;
+function formatNumber(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        maximumFractionDigits: 2,
+    }).format(value);
 }

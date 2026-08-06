@@ -7,8 +7,9 @@ use App\Models\ClanWarLeague;
 use App\Models\War;
 use App\Services\Clans\ActiveClanContext;
 use App\Services\ClashOfClans\ClashOfClansException;
-use App\Services\Wars\CwlSyncService;
+use App\Services\Wars\CwlMemberPerformance;
 use App\Services\Wars\CwlStandings;
+use App\Services\Wars\CwlSyncService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,7 @@ class CwlController extends Controller
         ClanWarLeague $league,
         ActiveClanContext $context,
         CwlStandings $standings,
+        CwlMemberPerformance $memberPerformance,
     ): Response {
         $clan = $context->active($request);
 
@@ -74,6 +76,7 @@ class CwlController extends Controller
             'clan' => $clan,
             'league' => $league,
             'standings' => $standings->forLeague($league),
+            'memberPerformance' => $memberPerformance->forLeague($league),
         ]);
     }
 
