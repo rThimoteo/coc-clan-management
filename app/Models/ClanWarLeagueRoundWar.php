@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'opponent_destruction_percentage',
     'winner_tag',
     'summary_synced_at',
+    'final_synced_at',
     'war_id',
 ])]
 class ClanWarLeagueRoundWar extends Model
@@ -44,6 +45,7 @@ class ClanWarLeagueRoundWar extends Model
             'clan_destruction_percentage' => 'float',
             'opponent_destruction_percentage' => 'float',
             'summary_synced_at' => 'datetime',
+            'final_synced_at' => 'datetime',
         ];
     }
 

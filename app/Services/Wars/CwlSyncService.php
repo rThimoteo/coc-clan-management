@@ -116,11 +116,18 @@ class CwlSyncService
 
         $payload = $this->clashOfClans->clanWarLeagueWar($entry->war_tag);
 
-        if ($payload === null || ! $this->containsClan($payload, $clan->tag)) {
+        if ($payload === null) {
             return false;
         }
 
         $this->persistMatchSummary($entry, $payload);
+
+        if (! $this->containsClan($payload, $clan->tag)) {
+            $entry->update(['status' => 'unrelated']);
+
+            return true;
+        }
+
         [$war] = $this->wars->persistDetailedWar($clan, $payload, 'cwl');
         $entry->update([
             'war_id' => $war->id,
@@ -137,7 +144,9 @@ class CwlSyncService
         ClanWarLeagueRoundWar $entry,
         array $payload,
     ): void {
+        $wasEnded = in_array($entry->state, ['warEnded', 'ended'], true);
         $state = (string) data_get($payload, 'state');
+        $isEnded = in_array($state, ['warEnded', 'ended'], true);
         $clan = (array) data_get($payload, 'clan', []);
         $opponent = (array) data_get($payload, 'opponent', []);
         $clanTag = $this->clashOfClans->normalizeTag((string) data_get($clan, 'tag'));
@@ -163,6 +172,7 @@ class CwlSyncService
             'opponent_destruction_percentage' => (float) data_get($opponent, 'destructionPercentage', 0),
             'winner_tag' => $this->winnerTag($state, $clan, $opponent),
             'summary_synced_at' => now(),
+            'final_synced_at' => $isEnded && $wasEnded ? now() : null,
         ]);
     }
 
@@ -415,6 +425,7 @@ class CwlSyncService
             'opponent_destruction_percentage',
             'winner_tag',
             'summary_synced_at',
+            'final_synced_at',
         ];
         $sourceIsNewer = $source->summary_synced_at && (
             ! $target->summary_synced_at ||
