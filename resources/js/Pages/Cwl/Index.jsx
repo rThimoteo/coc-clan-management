@@ -17,6 +17,9 @@ const stateBadge =
 export default function Index({ clan, leagues, leagueStats }) {
     const { auth, demoMode, errors, status, syncSummary } = usePage().props;
     const { post, processing } = useForm({});
+    const activeLeague = leagues.data.find((league) =>
+        ['preparation', 'inWar'].includes(league.state),
+    );
 
     return (
         <AuthenticatedLayout
@@ -43,6 +46,28 @@ export default function Index({ clan, leagues, leagueStats }) {
                     </strong>
                 </div>
             </section>
+
+            {activeLeague && (
+                <Link
+                    className="cwl-active-callout"
+                    href={route('cwl.show', activeLeague.id)}
+                >
+                    <span className="cwl-active-pulse" aria-hidden="true" />
+                    <span>
+                        <small>CWL ATIVA · {formatSeason(activeLeague.season)}</small>
+                        <strong>
+                            {activeLeague.state === 'preparation'
+                                ? 'A temporada está em preparação'
+                                : 'A batalha da liga está acontecendo'}
+                        </strong>
+                        <span>
+                            {activeLeague.rounds_count} rodadas sincronizadas ·{' '}
+                            {activeLeague.participants_count} clãs
+                        </span>
+                    </span>
+                    <b>ACOMPANHAR AGORA →</b>
+                </Link>
+            )}
 
             {(status === 'cwl-synced' || errors.sync) && (
                 <div

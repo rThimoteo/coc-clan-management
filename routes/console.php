@@ -9,6 +9,10 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 if (! config('services.clash_of_clans.demo_mode')) {
+    Schedule::command('wars:refresh-active')
+        ->everyFiveMinutes()
+        ->withoutOverlapping(10);
+
     Schedule::command('members:sync')
         ->dailyAt('03:00')
         ->timezone(config('app.schedule_timezone'))

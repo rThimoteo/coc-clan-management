@@ -8,9 +8,70 @@ use App\Models\War;
 use App\Models\WarAttack;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class PlayerPerformanceQuery
 {
+    /**
+     * @param  list<int>  $playerIds
+     * @return array<int, array{wars: int, attacks: int, average_stars: float}>
+     */
+    public function summaries(Clan $clan, array $playerIds, int $window = 10): array
+    {
+        if ($playerIds === []) {
+            return [];
+        }
+
+        $warsByPlayer = War::query()
+            ->whereBelongsTo($clan)
+            ->where('has_details', true)
+            ->where('end_time', '<=', now()->addDay())
+            ->whereHas('members', fn ($query) => $query
+                ->where('side', 'clan')
+                ->whereIn('player_id', $playerIds))
+            ->with(['members' => fn ($query) => $query
+                ->where('side', 'clan')
+                ->whereIn('player_id', $playerIds)
+                ->select('id', 'war_id', 'player_id')])
+            ->latest('end_time')
+            ->get()
+            ->reduce(function (SupportCollection $grouped, War $war) use ($window) {
+                foreach ($war->members as $member) {
+                    $playerWars = $grouped->get($member->player_id, collect());
+
+                    if ($playerWars->count() < $window) {
+                        $playerWars->push($war);
+                        $grouped->put($member->player_id, $playerWars);
+                    }
+                }
+
+                return $grouped;
+            }, collect());
+
+        $eligibleWarIds = $warsByPlayer
+            ->flatMap(fn (SupportCollection $wars) => $wars->pluck('id'))
+            ->unique()
+            ->values();
+        $attacks = WarAttack::query()
+            ->whereIn('war_id', $eligibleWarIds)
+            ->whereIn('attacker_player_id', $playerIds)
+            ->get(['war_id', 'attacker_player_id', 'stars']);
+
+        return collect($playerIds)->mapWithKeys(function (int $playerId) use ($warsByPlayer, $attacks): array {
+            $wars = $warsByPlayer->get($playerId, collect());
+            $warIds = $wars->pluck('id');
+            $playerAttacks = $attacks
+                ->where('attacker_player_id', $playerId)
+                ->whereIn('war_id', $warIds);
+
+            return [$playerId => [
+                'wars' => $wars->count(),
+                'attacks' => $playerAttacks->count(),
+                'average_stars' => $this->average($playerAttacks, 'stars'),
+            ]];
+        })->all();
+    }
+
     /**
      * @return array{
      *   metrics: array<string, int|float>,
@@ -139,10 +200,10 @@ class PlayerPerformanceQuery
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, WarAttack>  $attacks
+     * @param  SupportCollection<int, WarAttack>  $attacks
      */
     private function average(
-        \Illuminate\Support\Collection $attacks,
+        SupportCollection $attacks,
         string $field,
     ): float {
         return round((float) ($attacks->avg($field) ?? 0), 2);

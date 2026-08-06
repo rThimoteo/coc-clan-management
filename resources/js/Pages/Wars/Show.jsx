@@ -211,13 +211,14 @@ export default function Show({ war, clan, isActive, isPreparation, navigation = 
                                 <th>Membro</th>
                                 <th>{war.type === 'cwl' ? 'Ataque' : 'Ataque 1'}</th>
                                 {war.type !== 'cwl' && <th>Ataque 2</th>}
-                                <th>Defesas</th>
+                                <th>Defesa</th>
                             </tr>
                         </thead>
                         <tbody>
                             {clanMembers.map((member) => {
                                 const attacks = attacksFor(member.player_tag);
                                 const defenses = defensesFor(member.player_tag);
+                                const bestDefense = getBestDefense(defenses);
 
                                 return (
                                     <tr key={member.id}>
@@ -233,32 +234,39 @@ export default function Show({ war, clan, isActive, isPreparation, navigation = 
                                         <td>
                                             <AttackResult
                                                 attack={attacks[0]}
-                                                defender={opponentByTag[attacks[0]?.defender_tag]}
+                                                participant={opponentByTag[attacks[0]?.defender_tag]}
                                             />
                                         </td>
                                         {war.type !== 'cwl' && (
                                             <td>
                                                 <AttackResult
                                                     attack={attacks[1]}
-                                                    defender={opponentByTag[attacks[1]?.defender_tag]}
+                                                    participant={opponentByTag[attacks[1]?.defender_tag]}
                                                 />
                                             </td>
                                         )}
                                         <td>
-                                            <button
-                                                className={cutButton}
-                                                onClick={() =>
-                                                    setDefenseMember({
-                                                        ...member,
-                                                        defenses,
-                                                    })
-                                                }
-                                            >
-                                                Ver defesas
-                                                <span className="grid h-5 min-w-5 place-items-center border border-white/15 bg-zinc-950 px-1 text-[0.66rem] text-zinc-400">
+                                            <div className="flex min-w-40 items-center justify-between gap-3">
+                                                <AttackResult
+                                                    attack={bestDefense}
+                                                    emptyLabel="Não atacado"
+                                                    participant={opponentByTag[bestDefense?.attacker_tag]}
+                                                    tone="defense"
+                                                />
+                                                <button
+                                                    aria-label={`${defenses.length} ${defenses.length === 1 ? 'ataque sofrido' : 'ataques sofridos'} por ${member.name}. Abrir detalhes.`}
+                                                    className={`${cutButton} min-w-9 justify-center px-2.5`}
+                                                    onClick={() =>
+                                                        setDefenseMember({
+                                                            ...member,
+                                                            defenses,
+                                                        })
+                                                    }
+                                                    title="Abrir ataques sofridos"
+                                                >
                                                     {defenses.length}
-                                                </span>
-                                            </button>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -293,24 +301,45 @@ function ClanScore({ name, tag, badge, stars, destruction, opponent = false }) {
     );
 }
 
-function AttackResult({ attack, defender }) {
+function AttackResult({
+    attack,
+    emptyLabel = 'Não realizado',
+    participant,
+    tone = 'attack',
+}) {
     if (!attack) {
-        return <span className="text-xs text-zinc-700">Não realizado</span>;
+        return <span className="text-xs text-zinc-700">{emptyLabel}</span>;
     }
 
     return (
         <div className="min-w-28">
-            <span className="flex gap-0.5 text-lg leading-none text-amber-300">
+            <span
+                className={`flex gap-0.5 text-lg leading-none ${tone === 'defense' ? 'text-rose-400' : 'text-amber-300'}`}
+            >
                 {Array.from({ length: 3 }, (_, index) => (
                     <i className="not-italic" key={index}>{index < attack.stars ? '★' : ''}</i>
                 ))}
             </span>
             <small className="mt-1 block text-xs text-zinc-500">
                 {formatPercentage(attack.destruction_percentage)}
-                {defender ? ` · #${defender.map_position}` : ''}
+                {participant ? ` · #${participant.map_position}` : ''}
             </small>
         </div>
     );
+}
+
+function getBestDefense(defenses) {
+    return defenses.reduce((best, defense) => {
+        if (!best || defense.stars > best.stars) return defense;
+        if (
+            defense.stars === best.stars &&
+            defense.destruction_percentage > best.destruction_percentage
+        ) {
+            return defense;
+        }
+
+        return best;
+    }, null);
 }
 
 function DefenseModal({ member, opponents, onClose }) {
@@ -348,7 +377,7 @@ function DefenseModal({ member, opponents, onClose }) {
                                             {attacker ? `Posição #${attacker.map_position}` : defense.attacker_tag}
                                         </small>
                                     </div>
-                                    <AttackResult attack={defense} />
+                                    <AttackResult attack={defense} tone="defense" />
                                 </article>
                             );
                         })}
