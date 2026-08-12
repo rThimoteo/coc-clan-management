@@ -262,10 +262,10 @@ export default function Index({
                         <tbody>
                             {users.data.map((user) => (
                                 <tr key={user.id}>
-                                    <td>
+                                    <td data-label="Usuário">
                                         <strong>{user.name}</strong>
                                     </td>
-                                    <td>
+                                    <td data-label="Função">
                                         <div className="flex flex-col items-start gap-1.5">
                                             <span className={`${cutBadge} ${
                                                 user.role.slug === 'admin'
@@ -284,7 +284,7 @@ export default function Index({
                                             )}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Contas vinculadas">
                                         {user.players.length ? (
                                             <div className="flex max-w-sm flex-wrap gap-1.5">
                                                 {user.players.map((player) => (
@@ -307,7 +307,7 @@ export default function Index({
                                             </span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td data-label="Ações">
                                         <div className="flex flex-wrap gap-1.5">
                                             {permissions.linkPlayers && (
                                                 <button className={actionButton} onClick={() => openMemberLink(user)}>

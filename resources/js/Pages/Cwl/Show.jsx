@@ -224,7 +224,7 @@ function MemberPerformance({ clanName, members }) {
                 </div>
             ) : (
                 <div className="cwl-member-performance-wrap">
-                    <table>
+                    <table className="cwl-detail-table">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -238,15 +238,15 @@ function MemberPerformance({ clanName, members }) {
                         <tbody>
                             {members.map((member, index) => (
                                 <tr key={member.player_tag}>
-                                    <td><strong>{index + 1}</strong></td>
-                                    <td>
+                                    <td data-label="Posição"><strong>{index + 1}</strong></td>
+                                    <td data-label="Membro">
                                         <strong>{member.name}</strong>
                                         <small>{member.player_tag}</small>
                                     </td>
-                                    <td className="is-attack-stars">{member.stars} ★</td>
-                                    <td className="is-defense-stars">{member.defensive_stars} ★</td>
-                                    <td className="is-destruction">{formatNumber(member.destruction)}</td>
-                                    <td>
+                                    <td className="is-attack-stars" data-label="Estrelas">{member.stars} ★</td>
+                                    <td className="is-defense-stars" data-label="Defesa">{member.defensive_stars} ★</td>
+                                    <td className="is-destruction" data-label="Destruição">{formatNumber(member.destruction)}</td>
+                                    <td data-label="Ataques">
                                         <strong>{member.attacks_made}</strong>
                                         <span> / {member.attacks_available}</span>
                                     </td>
@@ -271,7 +271,7 @@ function Standings({ standings, ownClanTag }) {
                 <small>Vitória vale +10 estrelas</small>
             </header>
             <div className="cwl-standings-wrap">
-                <table>
+                <table className="cwl-detail-table">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -296,8 +296,8 @@ function Standings({ standings, ownClanTag }) {
                                 }
                                 key={standing.clan_tag}
                             >
-                                <td><strong>{standing.position}</strong></td>
-                                <td>
+                                <td data-label="Posição"><strong>{standing.position}</strong></td>
+                                <td data-label="Clã">
                                     <span className="cwl-standing-clan">
                                         {standing.badge_url && (
                                             <img src={standing.badge_url} alt="" />
@@ -308,14 +308,14 @@ function Standings({ standings, ownClanTag }) {
                                         </span>
                                     </span>
                                 </td>
-                                <td>{standing.played}</td>
-                                <td>{standing.wins}</td>
-                                <td>{standing.draws}</td>
-                                <td>{standing.losses}</td>
-                                <td>{standing.stars}</td>
-                                <td className="is-bonus">+{standing.bonus_stars}</td>
-                                <td className="is-total">{standing.score}</td>
-                                <td>{formatPercentage(standing.destruction_percentage)}</td>
+                                <td data-label="Jogos">{standing.played}</td>
+                                <td data-label="Vitórias">{standing.wins}</td>
+                                <td data-label="Empates">{standing.draws}</td>
+                                <td data-label="Derrotas">{standing.losses}</td>
+                                <td data-label="Estrelas">{standing.stars}</td>
+                                <td className="is-bonus" data-label="Bônus">+{standing.bonus_stars}</td>
+                                <td className="is-total" data-label="Total">{standing.score}</td>
+                                <td data-label="Destruição">{formatPercentage(standing.destruction_percentage)}</td>
                             </tr>
                         ))}
                     </tbody>

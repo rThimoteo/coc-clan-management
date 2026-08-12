@@ -572,7 +572,7 @@ function HistoryTable({
                         <tbody>
                             {pagination.data.map((attack) => (
                                 <tr key={attack.id}>
-                                    <td>
+                                    <td data-label="Guerra">
                                         <strong>
                                             {attack.war.opponent_name}
                                         </strong>
@@ -580,7 +580,7 @@ function HistoryTable({
                                             {attack.war.opponent_tag}
                                         </small>
                                     </td>
-                                    <td>
+                                    <td data-label="Tipo">
                                         <span
                                             className={`${cutBadge} ${
                                                 attack.war.type === 'cwl'
@@ -593,20 +593,20 @@ function HistoryTable({
                                                 : 'Regular'}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label={targetLabel}>
                                         <code>{attack[targetField]}</code>
                                     </td>
-                                    <td>
+                                    <td data-label="Estrelas">
                                         <span className="font-black text-amber-300">
                                             {attack.stars} ★
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label="Destruição">
                                         {formatPercentage(
                                             attack.destruction_percentage,
                                         )}
                                     </td>
-                                    <td>
+                                    <td data-label="Data">
                                         {formatDate(attack.war.end_time)}
                                     </td>
                                 </tr>

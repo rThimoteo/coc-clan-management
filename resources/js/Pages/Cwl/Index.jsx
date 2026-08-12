@@ -157,7 +157,7 @@ export default function Index({ clan, leagues, leagueStats }) {
                             <tbody>
                                 {leagues.data.map((league) => (
                                     <tr key={league.id}>
-                                        <td>
+                                        <td data-label="Temporada">
                                             <strong>
                                                 {formatSeason(league.season)}
                                             </strong>
@@ -166,7 +166,7 @@ export default function Index({ clan, leagues, leagueStats }) {
                                                 {league.participants_count} clãs
                                             </small>
                                         </td>
-                                        <td>
+                                        <td data-label="Estado">
                                             <span
                                                 className={`${stateBadge} ${league.state === 'inWar' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : league.state === 'preparation' ? 'border-amber-400/30 bg-amber-400/10 text-amber-300' : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'}`}
                                             >
@@ -174,16 +174,16 @@ export default function Index({ clan, leagues, leagueStats }) {
                                                     league.state}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Tamanho">
                                             {formatWarSize(league.team_size)}
                                         </td>
-                                        <td>
+                                        <td data-label="Estrelas">
                                             <strong>{league.clan_stars}</strong>
                                         </td>
-                                        <td>
+                                        <td data-label="Ataques">
                                             {formatAttacks(league)}
                                         </td>
-                                        <td>
+                                        <td data-label="Destruição média">
                                             {league.has_summary
                                                 ? formatPercentage(
                                                       league.clan_destruction_percentage /
@@ -191,15 +191,16 @@ export default function Index({ clan, leagues, leagueStats }) {
                                                   )
                                                 : '—'}
                                         </td>
-                                        <td>
+                                        <td data-label="Encerramento">
                                             {league.end_time
                                                 ? formatDate(league.end_time)
                                                 : 'Em andamento'}
                                         </td>
-                                        <td className="war-action-cell">
+                                        <td className="war-action-cell" data-label="Detalhes">
                                             {league.rounds_count > 0 && (
                                                 <Link
-                                                    className={detailsLink}
+                                                    aria-label={`Ver temporada ${formatSeason(league.season)}`}
+                                                    className={`${detailsLink} table-row-link`}
                                                     href={route(
                                                         'cwl.show',
                                                         league.id,

@@ -260,19 +260,19 @@ export default function Index({
                             <tbody>
                                 {members.data.map((member) => (
                                     <tr key={member.id}>
-                                        <td>
+                                        <td data-label="Jogador">
                                             <strong>{member.name}</strong>
                                             <small>{member.player_tag}</small>
                                         </td>
-                                        <td>
+                                        <td data-label="CV">
                                             <span className={`${cutBadge} border-amber-400/30 bg-amber-400/10 text-amber-300`}>
                                                 {member.town_hall_level
                                                     ? member.town_hall_level
                                                     : '—'}
                                             </span>
                                         </td>
-                                        <td>{roleLabels[member.role] ?? member.role ?? '—'}</td>
-                                        <td>
+                                        <td data-label="Cargo">{roleLabels[member.role] ?? member.role ?? '—'}</td>
+                                        <td data-label="Status">
                                             <span className={`${cutBadge} ${
                                                 member.status.slug === 'in'
                                                     ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
@@ -282,15 +282,16 @@ export default function Index({
                                                 {statusLabels[member.status.slug]}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label={`Média · ${performanceWindow} guerras`}>
                                             <PerformanceSummary
                                                 summary={member.performance_summary}
                                                 window={performanceWindow}
                                             />
                                         </td>
-                                        <td className="war-action-cell">
+                                        <td className="war-action-cell" data-label="Detalhes">
                                             <Link
-                                                className={actionLink}
+                                                aria-label={`Ver desempenho de ${member.name}`}
+                                                className={`${actionLink} table-row-link`}
                                                 href={route(
                                                     'members.show',
                                                     member.id,
