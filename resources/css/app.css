@@ -3075,6 +3075,173 @@
         clip-path: none;
     }
 
+    .members-table-wrap:has(.members-table),
+    .cwl-member-performance-wrap:has(.cwl-detail-table),
+    .cwl-standings-wrap:has(.cwl-detail-table) {
+        max-width: 100%;
+        overflow: visible;
+        background: transparent;
+        touch-action: auto;
+    }
+
+    :is(.members-table, .cwl-detail-table) {
+        display: block;
+        min-width: 0;
+    }
+
+    :is(.members-table, .cwl-detail-table) thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    :is(.members-table, .cwl-detail-table) tbody {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    :is(.members-table, .cwl-detail-table) tbody tr {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-left: 3px solid rgba(245, 158, 11, 0.62);
+        background: rgba(9, 9, 11, 0.72);
+    }
+
+    :is(.members-table, .cwl-detail-table) td {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 0.3rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 0.8rem 0.9rem;
+        overflow-wrap: anywhere;
+    }
+
+    :is(.members-table, .cwl-detail-table) td:first-child,
+    :is(.members-table, .cwl-detail-table) td:nth-child(2) {
+        border-top: 0;
+    }
+
+    :is(.members-table, .cwl-detail-table) td::before {
+        content: attr(data-label);
+        color: rgb(113 113 122);
+        font-size: 0.58rem;
+        font-weight: 900;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+
+    :is(.members-table, .cwl-detail-table) td:first-child {
+        grid-column: 1 / -1;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        background: rgba(24, 24, 27, 0.7);
+    }
+
+    :is(.members-table, .cwl-detail-table) td:first-child + td {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .members-table .war-action-cell:has(.table-row-link) {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        display: block;
+        padding: 0;
+        border: 0;
+        pointer-events: none;
+    }
+
+    .members-table .war-action-cell:empty {
+        display: none;
+    }
+
+    .members-table .war-action-cell:has(.table-row-link)::before {
+        display: none;
+    }
+
+    .members-table .table-row-link {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: transparent;
+        color: transparent;
+        font-size: 0;
+        clip-path: none;
+        pointer-events: auto;
+    }
+
+    .members-table tr:has(.table-row-link)::after {
+        content: '›';
+        position: absolute;
+        top: 0.85rem;
+        right: 0.9rem;
+        color: rgb(251 191 36);
+        font-size: 1.4rem;
+        line-height: 1;
+        pointer-events: none;
+    }
+
+    .members-table tr:has(.table-row-link):focus-within {
+        border-color: rgba(251, 191, 36, 0.8);
+        box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.18);
+    }
+
+    .admin-users-table tbody tr,
+    .war-members-table tbody tr {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-users-table td,
+    .war-members-table td,
+    .admin-users-table td:first-child + td,
+    .war-members-table td:first-child + td {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-users-table td:first-child,
+    .war-members-table td:first-child {
+        grid-column: auto;
+    }
+
+    .cwl-member-performance-wrap,
+    .cwl-standings-wrap {
+        margin-right: 0;
+        margin-left: 0;
+        overflow: visible;
+        border: 0;
+        background: transparent;
+    }
+
+    .cwl-member-performance .cwl-detail-table td,
+    .cwl-standings .cwl-detail-table td {
+        display: flex;
+        min-width: 0;
+        padding: 0.8rem 0.9rem;
+        color: rgb(161 161 170);
+        font-size: 0.78rem;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .cwl-member-performance .cwl-detail-table,
+    .cwl-standings .cwl-detail-table {
+        width: 100%;
+        min-width: 0;
+    }
+
     .player-chart {
         max-width: 100%;
         padding-right: 0;

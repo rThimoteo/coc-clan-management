@@ -188,14 +188,14 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                             <tbody>
                                 {wars.data.map((war) => (
                                     <tr key={war.id}>
-                                        <td>
+                                        <td data-label="Resultado">
                                             <span className={resultBadgeClass(war.result)}>
                                                 {resultLabels[war.result] ??
                                                     stateLabels[war.state] ??
                                                     'Pendente'}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Oponente">
                                             <div className="flex items-center gap-3">
                                                 {war.opponent_badge_url && (
                                                     <img className="h-9 w-9 object-contain" src={war.opponent_badge_url} alt="" />
@@ -206,21 +206,22 @@ export default function Index({ wars, clan, activeWar, warStats, filters }) {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Estrelas">
                                             <span className="inline-flex items-center gap-2 font-display text-base">
                                                 <strong className="text-amber-300">{war.clan_stars}</strong>
                                                 <i className="text-xs not-italic text-zinc-600">×</i>
                                                 <span className="text-zinc-400">{war.opponent_stars}</span>
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Destruição">
                                             {formatPercentage(war.clan_destruction_percentage)}
                                         </td>
-                                        <td>{formatDate(war.end_time)}</td>
-                                        <td className="war-action-cell">
+                                        <td data-label="Encerramento">{formatDate(war.end_time)}</td>
+                                        <td className="war-action-cell" data-label="Detalhes">
                                             {war.has_details && (
                                                 <Link
-                                                    className={detailsLink}
+                                                    aria-label={`Ver detalhes da guerra contra ${war.opponent_name}`}
+                                                    className={`${detailsLink} table-row-link`}
                                                     href={route('wars.show', war.id)}
                                                 >
                                                     Ver detalhes

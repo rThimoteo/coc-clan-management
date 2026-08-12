@@ -202,7 +202,7 @@ export default function Show({ war, clan, isActive, isPreparation, navigation = 
                     onPointerMove={moveRosterDrag}
                     onPointerUp={stopRosterDrag}
                     onPointerCancel={stopRosterDrag}
-                    aria-label="Tabela de ataques com rolagem horizontal"
+                    aria-label="Tabela de ataques"
                 >
                     <table className={`members-table war-members-table ${war.type === 'cwl' ? 'is-cwl' : ''}`}>
                         <thead>
@@ -222,30 +222,30 @@ export default function Show({ war, clan, isActive, isPreparation, navigation = 
 
                                 return (
                                     <tr key={member.id}>
-                                        <td>
+                                        <td data-label="Posição">
                                             <span className="grid h-8 w-8 place-items-center border border-white/15 bg-zinc-950 font-display text-xs text-zinc-300 [clip-path:polygon(0_0,calc(100%-0.35rem)_0,100%_0.35rem,100%_100%,0.35rem_100%,0_calc(100%-0.35rem))]">#{member.map_position}</span>
                                         </td>
-                                        <td>
+                                        <td data-label="Membro">
                                             <strong className='mr-2'>{member.name}</strong>
                                             <small>
                                                 CV {member.townhall_level} · {member.player_tag}
                                             </small>
                                         </td>
-                                        <td>
+                                        <td data-label={war.type === 'cwl' ? 'Ataque' : 'Ataque 1'}>
                                             <AttackResult
                                                 attack={attacks[0]}
                                                 participant={opponentByTag[attacks[0]?.defender_tag]}
                                             />
                                         </td>
                                         {war.type !== 'cwl' && (
-                                            <td>
+                                            <td data-label="Ataque 2">
                                                 <AttackResult
                                                     attack={attacks[1]}
                                                     participant={opponentByTag[attacks[1]?.defender_tag]}
                                                 />
                                             </td>
                                         )}
-                                        <td>
+                                        <td data-label="Defesa">
                                             <div className="flex min-w-40 items-center justify-between gap-3">
                                                 <AttackResult
                                                     attack={bestDefense}
