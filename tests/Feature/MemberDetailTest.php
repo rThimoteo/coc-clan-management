@@ -31,12 +31,28 @@ class MemberDetailTest extends TestCase
             'destruction_percentage' => 100,
         ]);
         $war->attacks()->create([
+            'attacker_player_id' => $player->id,
+            'attacker_tag' => $player->player_tag,
+            'defender_tag' => '#TARGET-2',
+            'attack_order' => 2,
+            'stars' => 2,
+            'destruction_percentage' => 84,
+        ]);
+        $war->attacks()->create([
             'defender_player_id' => $player->id,
             'attacker_tag' => '#ENEMY',
             'defender_tag' => $player->player_tag,
-            'attack_order' => 2,
+            'attack_order' => 3,
             'stars' => 2,
             'destruction_percentage' => 75,
+        ]);
+        $war->attacks()->create([
+            'defender_player_id' => $player->id,
+            'attacker_tag' => '#ENEMY-2',
+            'defender_tag' => $player->player_tag,
+            'attack_order' => 4,
+            'stars' => 2,
+            'destruction_percentage' => 91,
         ]);
 
         $this->actingAs(User::factory()->create())
@@ -50,13 +66,18 @@ class MemberDetailTest extends TestCase
                 ->where('filters.type', 'regular')
                 ->where('filters.window', 5)
                 ->where('metrics.wars', 1)
-                ->where('metrics.attacks_used', 1)
+                ->where('metrics.attacks_used', 2)
                 ->where('metrics.attacks_available', 2)
-                ->where('metrics.average_stars', 3)
-                ->where('metrics.defenses', 1)
-                ->has('series', 1)
-                ->has('attacks.data', 1)
-                ->has('defenses.data', 1));
+                ->where('metrics.average_stars', 2.5)
+                ->where('metrics.defenses', 2)
+                ->has('series.attacks', 2)
+                ->where('series.attacks.0.counterpart_tag', '#TARGET')
+                ->where('series.attacks.1.counterpart_tag', '#TARGET-2')
+                ->has('series.defenses', 1)
+                ->where('series.defenses.0.counterpart_tag', '#ENEMY-2')
+                ->where('series.defenses.0.destruction_percentage', 91)
+                ->has('attacks.data', 2)
+                ->has('defenses.data', 2));
     }
 
     public function test_member_detail_uses_safe_filter_defaults(): void

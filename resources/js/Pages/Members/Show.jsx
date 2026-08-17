@@ -31,7 +31,7 @@ export default function Show({
     filters,
 }) {
     const player = membership.player;
-    const [chartMetric, setChartMetric] = useState('destruction');
+    const [chartMode, setChartMode] = useState('attacks');
     const applyFilter = (key, value) => {
         router.get(
             route('members.show', membership.id),
@@ -139,48 +139,35 @@ export default function Show({
                 <header>
                     <div>
                         <p className="section-kicker">TRAJETÓRIA</p>
-                        <h2>
-                            {chartMetric === 'destruction'
-                                ? 'Destruição por guerra'
-                                : 'Média de estrelas por guerra'}
-                        </h2>
+                        <h2>Estrelas por {chartMode === 'attacks' ? 'ataque' : 'defesa'}</h2>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-3">
-                        <div
-                            className="chart-metric-toggle"
-                            role="group"
-                            aria-label="Métrica do gráfico"
-                        >
+                    <div className={`chart-metric-toggle ${chartMode === 'defenses' ? 'is-defense-active' : ''}`} role="tablist" aria-label="Tipo de desempenho">
                             <button
                                 type="button"
-                                className={chartMetric === 'destruction' ? 'is-active' : ''}
-                                aria-pressed={chartMetric === 'destruction'}
-                                onClick={() => setChartMetric('destruction')}
+                                role="tab"
+                                className={chartMode === 'attacks' ? 'is-active' : ''}
+                                aria-selected={chartMode === 'attacks'}
+                                onClick={() => setChartMode('attacks')}
                             >
-                                Destruição
+                                Ataques
                             </button>
                             <button
                                 type="button"
-                                className={chartMetric === 'stars' ? 'is-active' : ''}
-                                aria-pressed={chartMetric === 'stars'}
-                                onClick={() => setChartMetric('stars')}
+                                role="tab"
+                                className={chartMode === 'defenses' ? 'is-active' : ''}
+                                aria-selected={chartMode === 'defenses'}
+                                onClick={() => setChartMode('defenses')}
                             >
-                                Estrelas
+                                Defesas
                             </button>
-                        </div>
-                        <div className="flex gap-3 text-xs text-zinc-500">
-                            <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-amber-500">Ataques</span>
-                            <span className="before:mr-1.5 before:inline-block before:h-2 before:w-2 before:bg-red-500">Defesas</span>
-                        </div>
                     </div>
                 </header>
-                {series.length === 0 ? (
+                {series[chartMode].length === 0 ? (
                     <PerformanceEmpty>
-                        Ainda não há guerras concluídas com detalhes para esta
-                        seleção.
+                        Nenhum {chartMode === 'attacks' ? 'ataque' : 'ataque defensivo'} registrado nesta seleção.
                     </PerformanceEmpty>
                 ) : (
-                    <PerformanceChart series={series} metric={chartMetric} />
+                    <PerformanceChart series={series[chartMode]} mode={chartMode} />
                 )}
             </section>
 
@@ -219,55 +206,33 @@ function MetricCard({ index, label, value, note, defensive = false }) {
     );
 }
 
-function PerformanceChart({ series, metric }) {
+function PerformanceChart({ series, mode }) {
     const [activePoint, setActivePoint] = useState(null);
     const chartScroller = useRef(null);
     const dragState = useRef(null);
-    const width = 900;
+    const width = Math.max(900, series.length * 90);
     const height = 260;
     const padding = 32;
-    const isDestruction = metric === 'destruction';
-    const maximum = isDestruction ? 100 : 3;
-    const offenseField = isDestruction
-        ? 'average_destruction'
-        : 'average_stars';
-    const defenseField = isDestruction
-        ? 'average_destruction_conceded'
-        : 'average_stars_conceded';
-    const ticks = isDestruction ? [0, 25, 50, 75, 100] : [0, 1, 2, 3];
-    const formatMetric = isDestruction ? formatPercentage : formatNumber;
+    const pointInset = 8;
+    const isAttack = mode === 'attacks';
+    const maximum = 3;
+    const ticks = [0, 1, 2, 3];
     const x = (index) =>
         series.length === 1
             ? width / 2
-            : padding +
-              (index * (width - padding * 2)) / (series.length - 1);
+            : padding + pointInset +
+              (index * (width - (padding + pointInset) * 2)) /
+                  (series.length - 1);
     const y = (value) =>
         height -
         padding -
         (Math.min(maximum, value) / maximum) * (height - padding * 2);
-    const offenseSeries = series
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }) => item.attacks > 0);
-    const defenseSeries = series
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }) => item.defenses > 0);
-    const offensePoints = offenseSeries
-        .map(
-            ({ item, index }) =>
-                `${x(index)},${y(item[offenseField])}`,
-        )
-        .join(' ');
-    const defensePoints = defenseSeries
-        .map(
-            ({ item, index }) =>
-                `${x(index)},${y(item[defenseField])}`,
-        )
-        .join(' ');
+    const points = series.map((item, index) => `${x(index)},${y(item.stars)}`).join(' ');
     const tooltip = activePoint
         ? {
               ...activePoint,
               x: x(activePoint.index),
-              y: y(activePoint.item[activePoint.field]),
+              y: y(activePoint.item.stars),
           }
         : null;
 
@@ -334,11 +299,11 @@ function PerformanceChart({ series, metric }) {
             onPointerCancel={stopChartDrag}
             aria-label="Gráfico rolável horizontalmente"
         >
-            <div className="player-chart-canvas">
+            <div className="player-chart-canvas" style={{ minWidth: `${width}px` }}>
             <svg
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
-                aria-label={`${isDestruction ? 'Destruição média' : 'Média de estrelas'} ofensiva e defensiva por guerra`}
+                aria-label={`Estrelas por ${isAttack ? 'ataque' : 'defesa'}`}
             >
                 {ticks.map((value) => (
                     <g key={value}>
@@ -349,35 +314,29 @@ function PerformanceChart({ series, metric }) {
                             y2={y(value)}
                         />
                         <text x="0" y={y(value) + 4}>
-                            {isDestruction ? `${value}%` : value}
+                            {value} ★
                         </text>
                     </g>
                 ))}
                 <polyline
-                    className="is-offense"
-                    points={offensePoints}
+                    className={isAttack ? 'is-offense' : 'is-defense'}
+                    points={points}
                 />
-                <polyline
-                    className="is-defense"
-                    points={defensePoints}
-                />
-                {offenseSeries.map(({ item, index }) => (
+                {series.map((item, index) => (
                     <circle
-                        className="is-offense"
+                        className={isAttack ? 'is-offense' : 'is-defense'}
                         cx={x(index)}
-                        cy={y(item[offenseField])}
+                        cy={y(item.stars)}
                         r="4"
-                        key={`offense-${item.war_id}`}
+                        key={item.id}
                         tabIndex="0"
                         role="button"
-                        aria-label={`${item.opponent_name}: ataque ${formatMetric(item[offenseField])}`}
+                        aria-label={`${item.opponent_name}: ${item.stars} estrelas, ${formatPercentage(item.destruction_percentage)} de destruição`}
                         onMouseEnter={() =>
                             setActivePoint({
                                 item,
                                 index,
-                                field: offenseField,
-                                label: 'Ataques',
-                                kind: 'offense',
+                                kind: isAttack ? 'offense' : 'defense',
                             })
                         }
                         onMouseLeave={() => setActivePoint(null)}
@@ -385,9 +344,7 @@ function PerformanceChart({ series, metric }) {
                             setActivePoint({
                                 item,
                                 index,
-                                field: offenseField,
-                                label: 'Ataques',
-                                kind: 'offense',
+                                kind: isAttack ? 'offense' : 'defense',
                             })
                         }
                         onBlur={() => setActivePoint(null)}
@@ -396,51 +353,7 @@ function PerformanceChart({ series, metric }) {
                             setActivePoint({
                                 item,
                                 index,
-                                field: offenseField,
-                                label: 'Ataques',
-                                kind: 'offense',
-                            });
-                        }}
-                    />
-                ))}
-                {defenseSeries.map(({ item, index }) => (
-                    <circle
-                        className="is-defense"
-                        cx={x(index)}
-                        cy={y(item[defenseField])}
-                        r="4"
-                        key={`defense-${item.war_id}`}
-                        tabIndex="0"
-                        role="button"
-                        aria-label={`${item.opponent_name}: defesa ${formatMetric(item[defenseField])}`}
-                        onMouseEnter={() =>
-                            setActivePoint({
-                                item,
-                                index,
-                                field: defenseField,
-                                label: 'Defesas',
-                                kind: 'defense',
-                            })
-                        }
-                        onMouseLeave={() => setActivePoint(null)}
-                        onFocus={() =>
-                            setActivePoint({
-                                item,
-                                index,
-                                field: defenseField,
-                                label: 'Defesas',
-                                kind: 'defense',
-                            })
-                        }
-                        onBlur={() => setActivePoint(null)}
-                        onPointerUp={(event) => {
-                            if (event.pointerType === 'mouse') return;
-                            setActivePoint({
-                                item,
-                                index,
-                                field: defenseField,
-                                label: 'Defesas',
-                                kind: 'defense',
+                                kind: isAttack ? 'offense' : 'defense',
                             });
                         }}
                     />
@@ -448,20 +361,18 @@ function PerformanceChart({ series, metric }) {
                 {tooltip && (
                     <ChartTooltip
                         point={tooltip}
-                        formatMetric={formatMetric}
+                        mode={mode}
                         chartWidth={width}
                         chartHeight={height}
                     />
                 )}
             </svg>
-            <div
-                className="player-chart-labels"
-                style={{
-                    gridTemplateColumns: `repeat(${series.length}, minmax(3rem, 1fr))`,
-                }}
-            >
-                {series.map((item) => (
-                    <span key={item.war_id}>
+            <div className="player-chart-labels">
+                {series.map((item, index) => (
+                    <span
+                        key={item.id}
+                        style={{ left: `${(x(index) / width) * 100}%` }}
+                    >
                         {item.opponent_name}
                         <small>{formatShortDate(item.end_time)}</small>
                     </span>
@@ -472,9 +383,9 @@ function PerformanceChart({ series, metric }) {
     );
 }
 
-function ChartTooltip({ point, formatMetric, chartWidth, chartHeight }) {
-    const boxWidth = 190;
-    const boxHeight = 62;
+function ChartTooltip({ point, mode, chartWidth, chartHeight }) {
+    const boxWidth = 230;
+    const boxHeight = point.item.counterpart_position ? 90 : 76;
     const boxX = Math.min(
         chartWidth - boxWidth - 8,
         Math.max(8, point.x - boxWidth / 2),
@@ -514,16 +425,24 @@ function ChartTooltip({ point, formatMetric, chartWidth, chartHeight }) {
                 {point.item.opponent_name}
             </text>
             <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 40}>
-                {point.label} · {formatShortDate(point.item.end_time)}
+                {formatShortDate(point.item.end_time)} · {formatPercentage(point.item.destruction_percentage)} de destruição
             </text>
+            <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 57}>
+                {mode === 'attacks' ? 'Alvo' : 'Atacante'}: {point.item.counterpart_name || point.item.counterpart_tag}
+            </text>
+            {point.item.counterpart_position && (
+                <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 74}>
+                    Posição #{point.item.counterpart_position}
+                </text>
+            )}
             <text
                 className="player-chart-tooltip-value"
                 x={boxX + boxWidth - 12}
-                y={boxY + 40}
+                y={boxY + 20}
                 textAnchor="end"
                 fill={accent}
             >
-                {formatMetric(point.item[point.field])}
+                {point.item.stars} ★
             </text>
         </g>
     );

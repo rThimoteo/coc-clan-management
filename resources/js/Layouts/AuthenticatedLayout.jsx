@@ -110,9 +110,8 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                     <span className="app-brand-logo">
                         <img src="/images/clan_hub.png" alt="" />
                     </span>
-                    <span>
-                        <strong>Clan Hub</strong>
-                        <small>WAR CONSOLE</small>
+                    <span className="app-brand-copy">
+                        <strong>WAR CONSOLE</strong>
                     </span>
                 </Link>
                     <button

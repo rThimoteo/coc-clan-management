@@ -75,7 +75,7 @@ class PlayerPerformanceQuery
     /**
      * @return array{
      *   metrics: array<string, int|float>,
-     *   series: list<array<string, mixed>>,
+     *   series: array{attacks: list<array<string, mixed>>, defenses: list<array<string, mixed>>},
      *   attacks: LengthAwarePaginator,
      *   defenses: LengthAwarePaginator
      * }
@@ -121,6 +121,60 @@ class PlayerPerformanceQuery
             ->whereIn('war_id', $warIds)
             ->where('defender_player_id', $player->id)
             ->get();
+        $wars->load(['members' => fn ($query) => $query
+            ->where('side', 'opponent')
+            ->select('id', 'war_id', 'player_tag', 'name', 'map_position')]);
+
+        $chronologicalWars = $wars->sortBy('end_time')->values();
+        $attackSeries = $chronologicalWars
+            ->flatMap(function (War $war) use ($allAttacks): SupportCollection {
+                $opponents = $war->members->keyBy('player_tag');
+
+                return $allAttacks
+                    ->where('war_id', $war->id)
+                    ->sortBy('attack_order')
+                    ->values()
+                    ->map(function (WarAttack $attack) use ($war, $opponents): array {
+                        $target = $opponents->get($attack->defender_tag);
+
+                        return $this->seriesPoint(
+                            $war,
+                            $attack,
+                            $attack->defender_tag,
+                            $target?->name,
+                            $target?->map_position,
+                        );
+                    });
+            })
+            ->values()
+            ->all();
+        $defenseSeries = $chronologicalWars
+            ->map(function (War $war) use ($allDefenses): ?array {
+                $bestAttack = $allDefenses
+                    ->where('war_id', $war->id)
+                    ->sort(function (WarAttack $left, WarAttack $right): int {
+                        return [$right->stars, $right->destruction_percentage, -$right->attack_order]
+                            <=> [$left->stars, $left->destruction_percentage, -$left->attack_order];
+                    })
+                    ->first();
+
+                if (! $bestAttack) {
+                    return null;
+                }
+
+                $attacker = $war->members->firstWhere('player_tag', $bestAttack->attacker_tag);
+
+                return $this->seriesPoint(
+                    $war,
+                    $bestAttack,
+                    $bestAttack->attacker_tag,
+                    $attacker?->name,
+                    $attacker?->map_position,
+                );
+            })
+            ->filter()
+            ->values()
+            ->all();
 
         return [
             'metrics' => [
@@ -141,39 +195,37 @@ class PlayerPerformanceQuery
                     'destruction_percentage',
                 ),
             ],
-            'series' => $wars
-                ->sortBy('end_time')
-                ->values()
-                ->map(function (War $war) use ($allAttacks, $allDefenses): array {
-                    $warAttacks = $allAttacks->where('war_id', $war->id);
-                    $warDefenses = $allDefenses->where('war_id', $war->id);
-
-                    return [
-                        'war_id' => $war->id,
-                        'type' => $war->type,
-                        'opponent_name' => $war->opponent_name,
-                        'end_time' => $war->end_time,
-                        'attacks' => $warAttacks->count(),
-                        'available_attacks' => $war->type === 'cwl' ? 1 : 2,
-                        'average_stars' => $this->average($warAttacks, 'stars'),
-                        'average_destruction' => $this->average(
-                            $warAttacks,
-                            'destruction_percentage',
-                        ),
-                        'defenses' => $warDefenses->count(),
-                        'average_stars_conceded' => $this->average(
-                            $warDefenses,
-                            'stars',
-                        ),
-                        'average_destruction_conceded' => $this->average(
-                            $warDefenses,
-                            'destruction_percentage',
-                        ),
-                    ];
-                })
-                ->all(),
+            'series' => [
+                'attacks' => $attackSeries,
+                'defenses' => $defenseSeries,
+            ],
             'attacks' => $attacks,
             'defenses' => $defenses,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function seriesPoint(
+        War $war,
+        WarAttack $attack,
+        string $counterpartTag,
+        ?string $counterpartName,
+        ?int $counterpartPosition,
+    ): array {
+        return [
+            'id' => $attack->id,
+            'war_id' => $war->id,
+            'type' => $war->type,
+            'opponent_name' => $war->opponent_name,
+            'end_time' => $war->end_time,
+            'stars' => $attack->stars,
+            'destruction_percentage' => $attack->destruction_percentage,
+            'counterpart_tag' => $counterpartTag,
+            'counterpart_name' => $counterpartName,
+            'counterpart_position' => $counterpartPosition,
+            'attack_order' => $attack->attack_order,
         ];
     }
 

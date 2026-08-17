@@ -41,11 +41,14 @@ class PlayerPerformanceQueryTest extends TestCase
             'average_stars_conceded' => 2.0,
             'average_destruction_conceded' => 70.0,
         ], $result['metrics']);
-        $this->assertCount(3, $result['series']);
-        $this->assertSame($first->id, $result['series'][0]['war_id']);
-        $this->assertSame(2, $result['series'][0]['attacks']);
-        $this->assertSame(0, $result['series'][1]['attacks']);
-        $this->assertSame(1, $result['series'][2]['available_attacks']);
+        $this->assertCount(3, $result['series']['attacks']);
+        $this->assertSame($first->id, $result['series']['attacks'][0]['war_id']);
+        $this->assertSame($first->id, $result['series']['attacks'][1]['war_id']);
+        $this->assertSame(3, $result['series']['attacks'][0]['stars']);
+        $this->assertSame(2, $result['series']['attacks'][1]['stars']);
+        $this->assertCount(2, $result['series']['defenses']);
+        $this->assertSame($first->id, $result['series']['defenses'][0]['war_id']);
+        $this->assertSame($second->id, $result['series']['defenses'][1]['war_id']);
     }
 
     public function test_unused_attacks_are_not_counted_as_zero_star_attacks(): void
