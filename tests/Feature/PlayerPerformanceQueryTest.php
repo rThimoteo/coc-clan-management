@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\MemberStatus as MemberStatusEnum;
 use App\Models\Clan;
 use App\Models\ClanMembership;
+use App\Models\ClanWarLeague;
 use App\Models\MemberStatus;
 use App\Models\Player;
 use App\Models\War;
@@ -80,6 +81,49 @@ class PlayerPerformanceQueryTest extends TestCase
             ->summaries($clan, [$player->id])[$player->id];
         $this->assertSame(4, $summary['attacks_available']);
         $this->assertSame(3, $summary['missed_attacks']);
+    }
+
+    public function test_it_ignores_an_orphaned_duplicate_of_a_linked_cwl_war(): void
+    {
+        [$clan, $player] = $this->context();
+        $linkedWar = $this->war($clan, $player, 'cwl', 2);
+        $linkedWar->update(['preparation_start_time' => now()->subDays(4)]);
+        $this->attack($linkedWar, $player, true, 1, 3, 100);
+        $orphan = $linkedWar->replicate([
+            'external_key',
+            'clan_attacks',
+            'clan_stars',
+            'clan_destruction_percentage',
+        ]);
+        $orphan->external_key = hash('sha256', 'orphaned-cwl-duplicate');
+        $orphan->state = 'preparation';
+        $orphan->save();
+        $orphan->members()->create([
+            'player_id' => $player->id,
+            'side' => 'clan',
+            'player_tag' => $player->player_tag,
+            'name' => $player->name,
+            'map_position' => 1,
+            'townhall_level' => $player->town_hall_level,
+        ]);
+        $league = ClanWarLeague::query()->create([
+            'clan_id' => $clan->id,
+            'season' => '2026-08',
+            'state' => 'ended',
+        ]);
+        $league->rounds()->create(['round_number' => 1])->wars()->create([
+            'war_tag' => '#CWLDUPLICATE',
+            'status' => 'synced',
+            'war_id' => $linkedWar->id,
+        ]);
+
+        $result = app(PlayerPerformanceQuery::class)->get($clan, $player);
+
+        $this->assertSame(1, $result['metrics']['wars']);
+        $this->assertSame(1, $result['metrics']['attacks_available']);
+        $this->assertSame(1, $result['metrics']['attacks_used']);
+        $this->assertCount(1, $result['series']['attacks']);
+        $this->assertFalse($result['series']['attacks'][0]['missed'] ?? false);
     }
 
     public function test_it_filters_regular_and_cwl_wars(): void

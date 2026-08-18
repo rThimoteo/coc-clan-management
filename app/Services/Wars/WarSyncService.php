@@ -67,6 +67,8 @@ class WarSyncService
                 $detailed++;
             }
 
+            $this->reconcileCwlDuplicates($clan);
+
             $identityPayload = $currentWar ?? $warLog[0] ?? null;
             $identityPayload = $identityPayload
                 ? $this->orientPayload($clan->tag, $identityPayload)
@@ -87,17 +89,84 @@ class WarSyncService
      * @param  array<string, mixed>  $payload
      * @return array{War, bool}
      */
-    public function persistDetailedWar(Clan $clan, array $payload, string $type = 'regular'): array
+    public function persistDetailedWar(
+        Clan $clan,
+        array $payload,
+        string $type = 'regular',
+        ?War $existingWar = null,
+    ): array
     {
         if (! $this->hasOpponent($payload)) {
             throw new \InvalidArgumentException('Uma guerra detalhada precisa possuir oponente.');
         }
 
-        return DB::transaction(function () use ($clan, $payload, $type): array {
-            [$war, $created] = $this->persistWar($clan, $payload, true, $type);
+        return DB::transaction(function () use ($clan, $payload, $type, $existingWar): array {
+            [$war, $created] = $this->persistWar(
+                $clan,
+                $payload,
+                true,
+                $type,
+                $existingWar,
+            );
             $this->persistDetails($war, $payload, $clan->tag);
 
             return [$war, $created];
+        });
+    }
+
+    public function reconcileCwlDuplicates(Clan $clan): int
+    {
+        return DB::transaction(function () use ($clan): int {
+            $duplicateGroups = War::query()
+                ->whereBelongsTo($clan)
+                ->where('type', 'cwl')
+                ->whereNotNull('preparation_start_time')
+                ->with('leagueRoundWar:id,war_id')
+                ->withCount(['attacks', 'members'])
+                ->get()
+                ->groupBy(fn (War $war): string => implode('|', [
+                    $war->opponent_tag,
+                    $war->preparation_start_time->toISOString(),
+                ]))
+                ->filter(fn ($wars): bool => $wars->count() > 1);
+            $removed = 0;
+
+            foreach ($duplicateGroups as $wars) {
+                $canonical = $wars
+                    ->sort(function (War $left, War $right): int {
+                        $leftScore = [
+                            (int) in_array($left->state, ['warEnded', 'ended'], true),
+                            $left->attacks_count,
+                            $left->members_count,
+                            (int) ($left->leagueRoundWar !== null),
+                            $left->id,
+                        ];
+                        $rightScore = [
+                            (int) in_array($right->state, ['warEnded', 'ended'], true),
+                            $right->attacks_count,
+                            $right->members_count,
+                            (int) ($right->leagueRoundWar !== null),
+                            $right->id,
+                        ];
+
+                        return $rightScore <=> $leftScore;
+                    })
+                    ->first();
+                $duplicateIds = $wars
+                    ->where('id', '!=', $canonical->id)
+                    ->pluck('id');
+
+                DB::table('clan_war_league_round_wars')
+                    ->whereIn('war_id', $duplicateIds)
+                    ->update(['war_id' => $canonical->id]);
+
+                $removed += War::query()
+                    ->whereBelongsTo($clan)
+                    ->whereIn('id', $duplicateIds)
+                    ->delete();
+            }
+
+            return $removed;
         });
     }
 
@@ -105,7 +174,13 @@ class WarSyncService
      * @param  array<string, mixed>  $payload
      * @return array{War, bool}
      */
-    private function persistWar(Clan $clan, array $payload, bool $detailed, string $type): array
+    private function persistWar(
+        Clan $clan,
+        array $payload,
+        bool $detailed,
+        string $type,
+        ?War $existingWar = null,
+    ): array
     {
         $payload = $this->orientPayload($clan->tag, $payload);
         $externalKey = $this->externalKey($clan->tag, $payload);
@@ -113,10 +188,12 @@ class WarSyncService
         $teamSize = (int) data_get($payload, 'teamSize', 0);
         $startTime = $this->parseTime(data_get($payload, 'startTime'));
         $endTime = $this->parseTime(data_get($payload, 'endTime'));
-        $war = War::query()
-            ->whereBelongsTo($clan)
-            ->where('external_key', $externalKey)
-            ->first();
+        $war = $existingWar?->clan_id === $clan->id
+            ? $existingWar
+            : War::query()
+                ->whereBelongsTo($clan)
+                ->where('external_key', $externalKey)
+                ->first();
 
         if ($war === null && $startTime !== null) {
             $war = War::query()
