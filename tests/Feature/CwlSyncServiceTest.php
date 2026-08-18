@@ -131,6 +131,43 @@ class CwlSyncServiceTest extends TestCase
         $this->assertSame(2, $summary['pending']);
     }
 
+    public function test_sync_removes_old_cwl_duplicates_and_preserves_the_most_complete_war(): void
+    {
+        $clan = $this->clan();
+        [$completeWar] = app(WarSyncService::class)->persistDetailedWar(
+            $clan,
+            $this->fixture('cwl_war.json'),
+            'cwl',
+        );
+        $duplicate = $completeWar->replicate(['external_key']);
+        $duplicate->external_key = hash('sha256', 'old-cwl-duplicate');
+        $duplicate->state = 'preparation';
+        $duplicate->save();
+        $league = $clan->warLeagues()->create([
+            'season' => '2026-07',
+            'state' => 'ended',
+        ]);
+        $entry = $league->rounds()->create(['round_number' => 1])->wars()->create([
+            'war_tag' => '#OLD-DUPLICATE',
+            'status' => 'synced',
+            'war_id' => $duplicate->id,
+        ]);
+        Http::fake(function (Request $request) {
+            if (str_contains($request->url(), '/warlog')) {
+                return Http::response(['items' => []]);
+            }
+
+            return Http::response(['state' => 'notInWar']);
+        });
+
+        app(CwlSyncService::class)->sync($clan);
+
+        $this->assertDatabaseCount(War::class, 1);
+        $this->assertDatabaseMissing(War::class, ['id' => $duplicate->id]);
+        $this->assertSame($completeWar->id, $entry->fresh()->war_id);
+        $this->assertGreaterThan(0, $completeWar->fresh()->attacks()->count());
+    }
+
     public function test_it_normalizes_a_dated_group_season_to_the_month(): void
     {
         $clan = $this->clan();
@@ -231,6 +268,8 @@ class CwlSyncServiceTest extends TestCase
                 } else {
                     $war['state'] = 'warEnded';
                     $war['clan']['stars'] = 31;
+                    $war['startTime'] = '20260803T073704.000Z';
+                    $war['endTime'] = '20260804T073704.000Z';
                 }
 
                 return Http::response($war);
@@ -241,6 +280,7 @@ class CwlSyncServiceTest extends TestCase
         $sync = app(CwlSyncService::class);
 
         $sync->sync($clan);
+        $initialWarId = War::query()->sole()->id;
         $this->assertDatabaseHas(War::class, [
             'clan_id' => $clan->id,
             'state' => 'preparation',
@@ -251,6 +291,8 @@ class CwlSyncServiceTest extends TestCase
         $sync->sync($clan);
 
         $this->assertSame(2, $warRequests);
+        $this->assertDatabaseCount(War::class, 1);
+        $this->assertSame($initialWarId, War::query()->sole()->id);
         $this->assertDatabaseHas(War::class, [
             'clan_id' => $clan->id,
             'state' => 'warEnded',

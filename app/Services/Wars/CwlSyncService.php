@@ -24,6 +24,7 @@ class CwlSyncService
      */
     public function sync(Clan $clan): array
     {
+        $this->wars->reconcileCwlDuplicates($clan);
         $this->persistWarLogSummaries($clan);
         $group = $this->clashOfClans->currentClanWarLeagueGroup($clan->tag);
 
@@ -86,7 +87,12 @@ class CwlSyncService
                 continue;
             }
 
-            [$war] = $this->wars->persistDetailedWar($clan, $payload, 'cwl');
+            [$war] = $this->wars->persistDetailedWar(
+                $clan,
+                $payload,
+                'cwl',
+                $entry->war()->first(),
+            );
             $entry->update([
                 'war_id' => $war->id,
                 'status' => 'synced',
@@ -128,7 +134,12 @@ class CwlSyncService
             return true;
         }
 
-        [$war] = $this->wars->persistDetailedWar($clan, $payload, 'cwl');
+        [$war] = $this->wars->persistDetailedWar(
+            $clan,
+            $payload,
+            'cwl',
+            $entry->war()->first(),
+        );
         $entry->update([
             'war_id' => $war->id,
             'status' => 'synced',

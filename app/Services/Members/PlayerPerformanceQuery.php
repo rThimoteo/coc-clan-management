@@ -25,6 +25,7 @@ class PlayerPerformanceQuery
         $warsByPlayer = War::query()
             ->whereBelongsTo($clan)
             ->where('has_details', true)
+            ->where(fn ($query) => $this->excludeOrphanedCwlDuplicate($query))
             ->where('end_time', '<=', now()->addDay())
             ->whereHas('members', fn ($query) => $query
                 ->where('side', 'clan')
@@ -275,6 +276,29 @@ class PlayerPerformanceQuery
             || ($war->end_time !== null && $war->end_time->isPast());
     }
 
+    private function excludeOrphanedCwlDuplicate($query): void
+    {
+        $query
+            ->where('wars.type', '!=', 'cwl')
+            ->orWhereHas('leagueRoundWar')
+            ->orWhereNotExists(fn ($duplicate) => $duplicate
+                ->selectRaw('1')
+                ->from('wars as linked_wars')
+                ->join(
+                    'clan_war_league_round_wars as linked_round_wars',
+                    'linked_round_wars.war_id',
+                    '=',
+                    'linked_wars.id',
+                )
+                ->whereColumn('linked_wars.clan_id', 'wars.clan_id')
+                ->whereColumn('linked_wars.opponent_tag', 'wars.opponent_tag')
+                ->whereColumn(
+                    'linked_wars.preparation_start_time',
+                    'wars.preparation_start_time',
+                )
+                ->whereColumn('linked_wars.id', '!=', 'wars.id'));
+    }
+
     /**
      * @return Collection<int, War>
      */
@@ -287,6 +311,7 @@ class PlayerPerformanceQuery
         return War::query()
             ->whereBelongsTo($clan)
             ->where('has_details', true)
+            ->where(fn ($query) => $this->excludeOrphanedCwlDuplicate($query))
             ->where('end_time', '<=', now()->addDay())
             ->when($type !== 'all', fn ($query) => $query->where('type', $type))
             ->whereHas('members', fn ($query) => $query
