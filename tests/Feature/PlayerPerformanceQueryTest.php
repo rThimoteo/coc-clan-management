@@ -41,11 +41,14 @@ class PlayerPerformanceQueryTest extends TestCase
             'average_stars_conceded' => 2.0,
             'average_destruction_conceded' => 70.0,
         ], $result['metrics']);
-        $this->assertCount(3, $result['series']['attacks']);
+        $this->assertCount(5, $result['series']['attacks']);
         $this->assertSame($first->id, $result['series']['attacks'][0]['war_id']);
         $this->assertSame($first->id, $result['series']['attacks'][1]['war_id']);
         $this->assertSame(3, $result['series']['attacks'][0]['stars']);
         $this->assertSame(2, $result['series']['attacks'][1]['stars']);
+        $this->assertTrue($result['series']['attacks'][2]['missed']);
+        $this->assertTrue($result['series']['attacks'][3]['missed']);
+        $this->assertSame(0, $result['series']['attacks'][2]['stars']);
         $this->assertCount(2, $result['series']['defenses']);
         $this->assertSame($first->id, $result['series']['defenses'][0]['war_id']);
         $this->assertSame($second->id, $result['series']['defenses'][1]['war_id']);
@@ -55,6 +58,7 @@ class PlayerPerformanceQueryTest extends TestCase
     {
         [$clan, $player] = $this->context();
         $used = $this->war($clan, $player, 'regular', 2);
+        $used->update(['state' => null]);
         $this->war($clan, $player, 'regular', 1);
         $this->attack($used, $player, true, 1, 3, 100);
 
@@ -65,6 +69,17 @@ class PlayerPerformanceQueryTest extends TestCase
         $this->assertSame(4, $metrics['attacks_available']);
         $this->assertSame(3.0, $metrics['average_stars']);
         $this->assertSame(100.0, $metrics['average_destruction']);
+
+        $series = app(PlayerPerformanceQuery::class)
+            ->get($clan, $player)['series']['attacks'];
+
+        $this->assertCount(4, $series);
+        $this->assertCount(3, collect($series)->where('missed', true));
+
+        $summary = app(PlayerPerformanceQuery::class)
+            ->summaries($clan, [$player->id])[$player->id];
+        $this->assertSame(4, $summary['attacks_available']);
+        $this->assertSame(3, $summary['missed_attacks']);
     }
 
     public function test_it_filters_regular_and_cwl_wars(): void
@@ -167,6 +182,10 @@ class PlayerPerformanceQueryTest extends TestCase
         $this->assertSame(2, $metrics['attacks_used']);
         $this->assertSame(4, $metrics['attacks_available']);
         $this->assertSame(2.0, $metrics['average_stars']);
+
+        $series = app(PlayerPerformanceQuery::class)
+            ->get($clan, $player)['series']['attacks'];
+        $this->assertCount(1, collect($series)->where('missed', true));
     }
 
     public function test_list_summaries_use_only_each_players_latest_ten_wars(): void
@@ -190,6 +209,8 @@ class PlayerPerformanceQueryTest extends TestCase
 
         $this->assertSame(10, $summary['wars']);
         $this->assertSame(10, $summary['attacks']);
+        $this->assertSame(20, $summary['attacks_available']);
+        $this->assertSame(10, $summary['missed_attacks']);
         $this->assertSame(3.0, $summary['average_stars']);
     }
 
