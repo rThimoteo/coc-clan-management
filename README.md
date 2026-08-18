@@ -238,6 +238,11 @@ preservando os dados carregados pelos seeders.
 
 ## Métricas dos jogadores
 
+A sincronização de membros também persiste troféus e os dados da liga
+competitiva retornados pela API (identificador, nome e ícone). A listagem usa
+liga e troféus como ordenação padrão e permite ordenar a amostra pela média de
+estrelas das dez guerras mais recentes.
+
 As métricas usam somente guerras concluídas, com detalhes capturados e
 pertencentes ao clã ativo. O jogador também precisa aparecer entre os
 participantes do lado administrado.
@@ -260,14 +265,16 @@ As fórmulas são:
 - **Destruição defensiva média:** soma das destruições sofridas dividida pelas
   defesas registradas.
 
-Ataques disponíveis que não foram utilizados não são tratados como ataques de
-zero estrela. Se a mesma base receber mais de uma defesa na guerra, cada ataque
-é uma observação separada. Guerras em preparação ou andamento ficam fora das
-métricas para que uma mesma janela produza resultados estáveis.
+Ataques disponíveis que não foram utilizados não entram na média de estrelas
+ou destruição. No gráfico ofensivo, porém, cada ausência em uma guerra
+encerrada aparece na posição de zero estrela com um `X` vermelho, distinguindo
+uma falta de um ataque realizado sem estrelas. Guerras regulares disponibilizam
+dois ataques e guerras CWL disponibilizam um. Guerras em preparação ou
+andamento não geram faltas.
 
-No gráfico, uma guerra sem ataque ou sem defesa permanece na amostra e no
-denominador de disponibilidade, mas não gera um ponto artificial de `0%` para
-a respectiva série.
+Se a mesma base receber mais de uma defesa na guerra, cada ataque permanece
+registrado no histórico defensivo; o gráfico mostra apenas o melhor ataque
+inimigo de cada guerra.
 
 ## Comandos úteis
 

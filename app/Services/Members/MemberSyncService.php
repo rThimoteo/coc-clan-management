@@ -58,11 +58,13 @@ class MemberSyncService
                         'player_tag' => $clanMember->tag,
                         'name' => $clanMember->name,
                         'town_hall_level' => $clanMember->townHallLevel,
+                        ...$this->competitiveAttributes($clanMember),
                     ]);
                     $players->put($clanMember->tag, $player);
                 } else {
                     $player->update([
                         'town_hall_level' => $clanMember->townHallLevel,
+                        ...$this->competitiveAttributes($clanMember),
                     ]);
                 }
 
@@ -119,5 +121,16 @@ class MemberSyncService
                 'moved_out' => $movedOut,
             ];
         });
+    }
+
+    /** @return array<string, int|string|null> */
+    private function competitiveAttributes(ClanMember $member): array
+    {
+        return [
+            'league_id' => $member->leagueId,
+            'league_name' => $member->leagueName,
+            'league_icon_url' => $member->leagueIconUrl,
+            'trophies' => $member->trophies,
+        ];
     }
 }

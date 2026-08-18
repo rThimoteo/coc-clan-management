@@ -10,6 +10,7 @@ use App\Models\MemberStatus;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\War;
 use App\Services\Clans\ActiveClanContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -90,6 +91,21 @@ class MemberPanelTest extends TestCase
                 $townHall,
             );
         }
+        Player::query()->where('player_tag', '#ALPHA')->update([
+            'league_id' => 29000022,
+            'league_name' => 'Legend League',
+            'trophies' => 5000,
+        ]);
+        Player::query()->where('player_tag', '#BRAVO')->update([
+            'league_id' => 29000021,
+            'league_name' => 'Titan League I',
+            'trophies' => 6000,
+        ]);
+        Player::query()->where('player_tag', '#CHARLIE')->update([
+            'league_id' => 29000022,
+            'league_name' => 'Legend League',
+            'trophies' => 5100,
+        ]);
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -117,6 +133,51 @@ class MemberPanelTest extends TestCase
                 ->where('members.data.0.name', 'Alpha')
                 ->where('members.data.1.name', 'Charlie')
                 ->where('members.data.2.name', 'Bravo'));
+
+        $this->actingAs($user)
+            ->get('/members?status=all&sort=league&direction=desc')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('members.data.0.name', 'Charlie')
+                ->where('members.data.1.name', 'Alpha')
+                ->where('members.data.2.name', 'Bravo'));
+
+        $war = War::query()->create([
+            'clan_id' => $clan->id,
+            'external_key' => hash('sha256', 'member-stars-sort'),
+            'type' => 'regular',
+            'state' => 'warEnded',
+            'team_size' => 15,
+            'end_time' => now()->subDay(),
+            'opponent_tag' => '#RIVAL',
+            'opponent_name' => 'Rival',
+            'has_details' => true,
+        ]);
+        foreach ([['#ALPHA', 1], ['#BRAVO', 2], ['#CHARLIE', 3]] as [$tag, $position]) {
+            $player = Player::query()->where('player_tag', $tag)->sole();
+            $war->members()->create([
+                'player_id' => $player->id,
+                'side' => 'clan',
+                'player_tag' => $tag,
+                'name' => $player->name,
+                'map_position' => $position,
+                'townhall_level' => $player->town_hall_level,
+            ]);
+            $war->attacks()->create([
+                'attacker_player_id' => $player->id,
+                'attacker_tag' => $tag,
+                'defender_tag' => "#TARGET{$position}",
+                'attack_order' => $position,
+                'stars' => $position,
+                'destruction_percentage' => $position * 30,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get('/members?status=all&sort=stars&direction=desc')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('members.data.0.name', 'Charlie')
+                ->where('members.data.1.name', 'Bravo')
+                ->where('members.data.2.name', 'Alpha'));
     }
 
     public function test_sync_adds_new_members_and_only_updates_status_of_known_members(): void
@@ -153,12 +214,24 @@ class MemberPanelTest extends TestCase
                         'name' => 'Nome alterado na API',
                         'role' => 'member',
                         'townHallLevel' => 16,
+                        'trophies' => 5100,
+                        'league' => [
+                            'id' => 29000022,
+                            'name' => 'Legend League',
+                            'iconUrls' => ['medium' => 'https://assets.test/legend.png'],
+                        ],
                     ],
                     [
                         'tag' => '#QGRJ9',
                         'name' => 'Novo jogador',
                         'role' => 'coLeader',
                         'townHallLevel' => 15,
+                        'trophies' => 4800,
+                        'league' => [
+                            'id' => 29000021,
+                            'name' => 'Titan League I',
+                            'iconUrls' => ['small' => 'https://assets.test/titan.png'],
+                        ],
                     ],
                 ],
             ]),
@@ -183,12 +256,18 @@ class MemberPanelTest extends TestCase
             'player_tag' => '#QGRJ9',
             'name' => 'Novo jogador',
             'town_hall_level' => 15,
+            'league_id' => 29000021,
+            'league_name' => 'Titan League I',
+            'league_icon_url' => 'https://assets.test/titan.png',
+            'trophies' => 4800,
         ]);
         $this->assertDatabaseHas(ClanMembership::class, [
             'clan_id' => $clan->id,
             'member_status_id' => $inStatus->id,
         ]);
         $this->assertSame(16, $returningMember->player->town_hall_level);
+        $this->assertSame(29000022, $returningMember->player->league_id);
+        $this->assertSame(5100, $returningMember->player->trophies);
         $this->assertDatabaseCount(Player::class, 3);
         $this->assertDatabaseCount(ClanMembership::class, 3);
         $this->assertNotNull($clan->fresh()->members_synced_at);

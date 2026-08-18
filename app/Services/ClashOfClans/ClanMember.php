@@ -9,5 +9,9 @@ readonly class ClanMember
         public string $name,
         public ?string $role,
         public ?int $townHallLevel,
+        public ?int $leagueId,
+        public ?string $leagueName,
+        public ?string $leagueIconUrl,
+        public ?int $trophies,
     ) {}
 }

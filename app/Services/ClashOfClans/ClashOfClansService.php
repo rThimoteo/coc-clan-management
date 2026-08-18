@@ -145,12 +145,24 @@ class ClashOfClansService
 
         return collect($response->json('memberList', []))
             ->filter(fn (mixed $member): bool => is_array($member))
-            ->map(fn (array $member): ClanMember => new ClanMember(
-                tag: $this->normalizeTag((string) data_get($member, 'tag')),
-                name: (string) data_get($member, 'name'),
-                role: data_get($member, 'role'),
-                townHallLevel: data_get($member, 'townHallLevel'),
-            ))
+            ->map(function (array $member): ClanMember {
+                $league = data_get($member, 'leagueTier')
+                    ?? data_get($member, 'league');
+                $league = is_array($league) ? $league : [];
+
+                return new ClanMember(
+                    tag: $this->normalizeTag((string) data_get($member, 'tag')),
+                    name: (string) data_get($member, 'name'),
+                    role: data_get($member, 'role'),
+                    townHallLevel: data_get($member, 'townHallLevel'),
+                    leagueId: data_get($league, 'id'),
+                    leagueName: data_get($league, 'name'),
+                    leagueIconUrl: data_get($league, 'iconUrls.medium')
+                        ?? data_get($league, 'iconUrls.small')
+                        ?? data_get($league, 'iconUrls.tiny'),
+                    trophies: data_get($member, 'trophies'),
+                );
+            })
             ->values()
             ->all();
     }

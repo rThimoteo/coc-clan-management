@@ -7,9 +7,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['user_id', 'player_tag', 'name', 'town_hall_level'])]
+#[Fillable([
+    'user_id',
+    'player_tag',
+    'name',
+    'town_hall_level',
+    'league_id',
+    'league_name',
+    'league_icon_url',
+    'trophies',
+])]
 class Player extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'league_id' => 'integer',
+            'trophies' => 'integer',
+        ];
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -20,6 +20,7 @@ const cutBadge =
     'inline-flex items-center gap-1 border px-2 py-1 text-xs font-black [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
 const actionLink =
     'inline-flex border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-amber-400/40 hover:text-white [clip-path:polygon(0_0,calc(100%-0.45rem)_0,100%_0.45rem,100%_100%,0.45rem_100%,0_calc(100%-0.45rem))]';
+const LEGEND_I_LEAGUE_ID = 105000036;
 
 export default function Index({
     members,
@@ -36,8 +37,8 @@ export default function Index({
         town_hall: filters.townHall ?? '',
         role: filters.role ?? '',
         status: filters.status ?? 'in',
-        sort: filters.sort ?? 'name',
-        direction: filters.direction ?? 'asc',
+        sort: filters.sort ?? 'league',
+        direction: filters.direction ?? 'desc',
     });
 
     const sync = () => {
@@ -59,13 +60,16 @@ export default function Index({
         );
     };
     const sortMembers = (column) => {
+        const defaultDirection = ['league', 'stars'].includes(column)
+            ? 'desc'
+            : 'asc';
         const nextFilters = {
             ...filterForm,
             sort: column,
             direction:
-                filterForm.sort === column && filterForm.direction === 'asc'
-                    ? 'desc'
-                    : 'asc',
+                filterForm.sort === column
+                    ? filterForm.direction === 'asc' ? 'desc' : 'asc'
+                    : defaultDirection,
         };
 
         setFilterForm(nextFilters);
@@ -245,15 +249,24 @@ export default function Index({
                                         onSort={sortMembers}
                                     />
                                     <SortableHeader
+                                        column="league"
+                                        label="Liga"
+                                        filters={filterForm}
+                                        onSort={sortMembers}
+                                    />
+                                    <SortableHeader
                                         column="role"
                                         label="Cargo"
                                         filters={filterForm}
                                         onSort={sortMembers}
                                     />
                                     <th>Status</th>
-                                    <th>
-                                        Média · {performanceWindow} guerras
-                                    </th>
+                                    <SortableHeader
+                                        column="stars"
+                                        label={`Média · ${performanceWindow} guerras`}
+                                        filters={filterForm}
+                                        onSort={sortMembers}
+                                    />
                                     <th />
                                 </tr>
                             </thead>
@@ -270,6 +283,9 @@ export default function Index({
                                                     ? member.town_hall_level
                                                     : '—'}
                                             </span>
+                                        </td>
+                                        <td data-label="Liga">
+                                            <LeagueSummary member={member} />
                                         </td>
                                         <td data-label="Cargo">{roleLabels[member.role] ?? member.role ?? '—'}</td>
                                         <td data-label="Status">
@@ -312,6 +328,43 @@ export default function Index({
     );
 }
 
+function LeagueSummary({ member }) {
+    if (!member.league_name && member.trophies === null) {
+        return <span className="member-league is-empty">—</span>;
+    }
+
+    const hasLegendShine = Number(member.league_id) === LEGEND_I_LEAGUE_ID;
+
+    return (
+        <span className="member-league">
+            {member.league_icon_url && (
+                <span className={`member-league-emblem ${hasLegendShine ? 'has-metal-shine' : ''}`}>
+                    <img
+                        src={member.league_icon_url}
+                        alt=""
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                    />
+                    {hasLegendShine && (
+                        <img
+                            className="member-league-shine"
+                            src={member.league_icon_url}
+                            alt=""
+                            aria-hidden="true"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                        />
+                    )}
+                </span>
+            )}
+            <span>
+                <strong>{member.league_name ?? 'Sem liga'}</strong>
+                <small>{formatTrophies(member.trophies)} troféus</small>
+            </span>
+        </span>
+    );
+}
+
 function PerformanceSummary({ summary, window }) {
     if (!summary?.wars) {
         return (
@@ -325,9 +378,20 @@ function PerformanceSummary({ summary, window }) {
     return (
         <span
             className="member-performance"
-            title={`Média de ${summary.attacks} ataques em ${summary.wars} das últimas ${window} guerras`}
+            title={`Média de ${summary.attacks} ataques em ${summary.wars} das últimas ${window} guerras${summary.missed_attacks ? ` · ${summary.missed_attacks} não realizado${summary.missed_attacks === 1 ? '' : 's'}` : ''}`}
         >
-            <strong>{formatStars(summary.average_stars)} ★</strong>
+            <strong>
+                {formatStars(summary.average_stars)} ★
+                {summary.missed_attacks > 0 && (
+                    <span
+                        className="member-performance-missed"
+                        aria-label={`${summary.missed_attacks} ataque${summary.missed_attacks === 1 ? '' : 's'} não realizado${summary.missed_attacks === 1 ? '' : 's'}`}
+                    >
+                        {summary.missed_attacks}{' '}
+                        {summary.missed_attacks === 1 ? 'falta' : 'faltas'}
+                    </span>
+                )}
+            </strong>
             <small>
                 {summary.wars} {summary.wars === 1 ? 'guerra' : 'guerras'} ·{' '}
                 {summary.attacks} {summary.attacks === 1 ? 'ataque' : 'ataques'}
@@ -379,6 +443,10 @@ function formatStars(value) {
         minimumFractionDigits: 1,
         maximumFractionDigits: 2,
     }).format(value ?? 0);
+}
+
+function formatTrophies(value) {
+    return new Intl.NumberFormat('pt-BR').format(value ?? 0);
 }
 
 function SyncIcon({ spinning }) {
