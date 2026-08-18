@@ -283,7 +283,7 @@ function PerformanceChart({ series, mode }) {
 
         if (
             !wasDragging &&
-            !event.target.closest?.('circle[role="button"]')
+            !event.target.closest?.('[role="button"]')
         ) {
             setActivePoint(null);
         }
@@ -322,42 +322,52 @@ function PerformanceChart({ series, mode }) {
                     className={isAttack ? 'is-offense' : 'is-defense'}
                     points={points}
                 />
-                {series.map((item, index) => (
-                    <circle
-                        className={isAttack ? 'is-offense' : 'is-defense'}
-                        cx={x(index)}
-                        cy={y(item.stars)}
-                        r="4"
-                        key={item.id}
-                        tabIndex="0"
-                        role="button"
-                        aria-label={`${item.opponent_name}: ${item.stars} estrelas, ${formatPercentage(item.destruction_percentage)} de destruição`}
-                        onMouseEnter={() =>
-                            setActivePoint({
-                                item,
-                                index,
-                                kind: isAttack ? 'offense' : 'defense',
-                            })
-                        }
-                        onMouseLeave={() => setActivePoint(null)}
-                        onFocus={() =>
-                            setActivePoint({
-                                item,
-                                index,
-                                kind: isAttack ? 'offense' : 'defense',
-                            })
-                        }
-                        onBlur={() => setActivePoint(null)}
-                        onPointerUp={(event) => {
-                            if (event.pointerType === 'mouse') return;
-                            setActivePoint({
-                                item,
-                                index,
-                                kind: isAttack ? 'offense' : 'defense',
-                            });
-                        }}
-                    />
-                ))}
+                {series.map((item, index) => {
+                    const activate = () => setActivePoint({
+                        item,
+                        index,
+                        kind: item.missed
+                            ? 'missed'
+                            : isAttack ? 'offense' : 'defense',
+                    });
+                    const interaction = {
+                        tabIndex: 0,
+                        role: 'button',
+                        'aria-label': item.missed
+                            ? `${item.opponent_name}: ataque não realizado`
+                            : `${item.opponent_name}: ${item.stars} estrelas, ${formatPercentage(item.destruction_percentage)} de destruição`,
+                        onMouseEnter: activate,
+                        onMouseLeave: () => setActivePoint(null),
+                        onFocus: activate,
+                        onBlur: () => setActivePoint(null),
+                        onPointerUp: (event) => {
+                            if (event.pointerType !== 'mouse') activate();
+                        },
+                    };
+
+                    if (item.missed) {
+                        const pointX = x(index);
+                        const pointY = y(0);
+
+                        return (
+                            <g className="player-chart-missed" key={item.id} {...interaction}>
+                                <line x1={pointX - 5} y1={pointY - 5} x2={pointX + 5} y2={pointY + 5} />
+                                <line x1={pointX + 5} y1={pointY - 5} x2={pointX - 5} y2={pointY + 5} />
+                            </g>
+                        );
+                    }
+
+                    return (
+                        <circle
+                            className={isAttack ? 'is-offense' : 'is-defense'}
+                            cx={x(index)}
+                            cy={y(item.stars)}
+                            r="4"
+                            key={item.id}
+                            {...interaction}
+                        />
+                    );
+                })}
                 {tooltip && (
                     <ChartTooltip
                         point={tooltip}
@@ -385,7 +395,9 @@ function PerformanceChart({ series, mode }) {
 
 function ChartTooltip({ point, mode, chartWidth, chartHeight }) {
     const boxWidth = 230;
-    const boxHeight = point.item.counterpart_position ? 90 : 76;
+    const boxHeight = point.item.missed
+        ? 58
+        : point.item.counterpart_position ? 90 : 76;
     const boxX = Math.min(
         chartWidth - boxWidth - 8,
         Math.max(8, point.x - boxWidth / 2),
@@ -424,16 +436,24 @@ function ChartTooltip({ point, mode, chartWidth, chartHeight }) {
             <text className="player-chart-tooltip-name" x={boxX + 13} y={boxY + 20}>
                 {point.item.opponent_name}
             </text>
-            <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 40}>
-                {formatShortDate(point.item.end_time)} · {formatPercentage(point.item.destruction_percentage)} de destruição
-            </text>
-            <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 57}>
-                {mode === 'attacks' ? 'Alvo' : 'Atacante'}: {point.item.counterpart_name || point.item.counterpart_tag}
-            </text>
-            {point.item.counterpart_position && (
-                <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 74}>
-                    Posição #{point.item.counterpart_position}
+            {point.item.missed ? (
+                <text className="player-chart-tooltip-missed" x={boxX + 13} y={boxY + 42}>
+                    Ataque não realizado · {formatShortDate(point.item.end_time)}
                 </text>
+            ) : (
+                <>
+                    <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 40}>
+                        {formatShortDate(point.item.end_time)} · {formatPercentage(point.item.destruction_percentage)} de destruição
+                    </text>
+                    <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 57}>
+                        {mode === 'attacks' ? 'Alvo' : 'Atacante'}: {point.item.counterpart_name || point.item.counterpart_tag}
+                    </text>
+                    {point.item.counterpart_position && (
+                        <text className="player-chart-tooltip-meta" x={boxX + 13} y={boxY + 74}>
+                            Posição #{point.item.counterpart_position}
+                        </text>
+                    )}
+                </>
             )}
             <text
                 className="player-chart-tooltip-value"
@@ -442,7 +462,7 @@ function ChartTooltip({ point, mode, chartWidth, chartHeight }) {
                 textAnchor="end"
                 fill={accent}
             >
-                {point.item.stars} ★
+                {point.item.missed ? 'X' : `${point.item.stars} ★`}
             </text>
         </g>
     );

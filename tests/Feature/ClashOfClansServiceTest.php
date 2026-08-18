@@ -33,7 +33,18 @@ class ClashOfClansServiceTest extends TestCase
                 'name' => 'Nosso Clã',
                 'badgeUrls' => ['medium' => 'https://assets.test/badge.png'],
                 'memberList' => [
-                    ['tag' => '#PQLG2', 'name' => 'Ayla', 'role' => 'leader', 'townHallLevel' => 17],
+                    [
+                        'tag' => '#PQLG2',
+                        'name' => 'Ayla',
+                        'role' => 'leader',
+                        'townHallLevel' => 17,
+                        'trophies' => 5123,
+                        'leagueTier' => [
+                            'id' => 29000022,
+                            'name' => 'Legend League',
+                            'iconUrls' => ['medium' => 'https://assets.test/legend.png'],
+                        ],
+                    ],
                     'resposta-inválida',
                 ],
             ]),
@@ -56,6 +67,10 @@ class ClashOfClansServiceTest extends TestCase
         $this->assertCount(1, $members);
         $this->assertSame('#PQLG2', $members[0]->tag);
         $this->assertSame(17, $members[0]->townHallLevel);
+        $this->assertSame(29000022, $members[0]->leagueId);
+        $this->assertSame('Legend League', $members[0]->leagueName);
+        $this->assertSame('https://assets.test/legend.png', $members[0]->leagueIconUrl);
+        $this->assertSame(5123, $members[0]->trophies);
         $this->assertSame('#QGRJ2', $player->clanTag);
         $this->assertSame('leader', $player->clanRole);
     }

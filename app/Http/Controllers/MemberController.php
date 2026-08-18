@@ -11,6 +11,7 @@ use App\Services\Members\MemberSyncService;
 use App\Services\Members\PlayerPerformanceQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -28,15 +29,18 @@ class MemberController extends Controller
             'townHall' => $request->integer('town_hall') ?: null,
             'role' => $request->string('role')->toString() ?: null,
             'status' => $request->string('status')->toString() ?: MemberStatus::In->value,
-            'sort' => $request->string('sort')->toString() ?: 'name',
-            'direction' => $request->string('direction')->toString() === 'desc' ? 'desc' : 'asc',
+            'sort' => $request->string('sort')->toString() ?: 'league',
+            'direction' => $request->string('direction')->toString(),
         ];
         $filters['status'] = in_array($filters['status'], ['all', 'in', 'out'], true)
             ? $filters['status']
             : MemberStatus::In->value;
-        $filters['sort'] = in_array($filters['sort'], ['name', 'town_hall', 'role'], true)
+        $filters['sort'] = in_array($filters['sort'], ['name', 'town_hall', 'role', 'league', 'stars'], true)
             ? $filters['sort']
-            : 'name';
+            : 'league';
+        $filters['direction'] = in_array($filters['direction'], ['asc', 'desc'], true)
+            ? $filters['direction']
+            : (in_array($filters['sort'], ['league', 'stars'], true) ? 'desc' : 'asc');
 
         $allMembers = ClanMembership::query()
             ->when($clan, fn ($query, Clan $activeClan) => $query
@@ -49,6 +53,10 @@ class MemberController extends Controller
                 'players.name',
                 'players.player_tag',
                 'players.town_hall_level',
+                'players.league_id',
+                'players.league_name',
+                'players.league_icon_url',
+                'players.trophies',
             ])
             ->when($clan, fn ($query, Clan $activeClan) => $query
                 ->where('clan_memberships.clan_id', $activeClan->id))
@@ -72,32 +80,68 @@ class MemberController extends Controller
                     "CASE clan_memberships.role WHEN 'leader' THEN 1 WHEN 'coLeader' THEN 2 WHEN 'admin' THEN 3 WHEN 'member' THEN 4 ELSE 5 END {$filters['direction']}",
                 )
                 ->orderBy('players.name'),
+            'league' => $members
+                ->orderBy('players.league_id', $filters['direction'])
+                ->orderBy('players.trophies', $filters['direction'])
+                ->orderBy('players.name'),
+            'stars' => null,
             default => $members->orderBy('players.name', $filters['direction']),
         };
 
-        $members = $members
-            ->with('status:id,slug')
-            ->paginate(20)
-            ->withQueryString();
-        $performanceSummaries = $clan
-            ? $performance->summaries(
-                $clan,
-                $members->getCollection()->pluck('player_id')->all(),
-                10,
-            )
-            : [];
-        $members->getCollection()->transform(function (ClanMembership $membership) use ($performanceSummaries): ClanMembership {
-            $membership->setAttribute(
-                'performance_summary',
-                $performanceSummaries[$membership->player_id] ?? [
-                    'wars' => 0,
-                    'attacks' => 0,
-                    'average_stars' => 0,
-                ],
-            );
+        $attachPerformance = function ($collection) use ($clan, $performance) {
+            $summaries = $clan
+                ? $performance->summaries(
+                    $clan,
+                    $collection->pluck('player_id')->all(),
+                    10,
+                )
+                : [];
 
-            return $membership;
-        });
+            return $collection->transform(function (ClanMembership $membership) use ($summaries): ClanMembership {
+                $membership->setAttribute(
+                    'performance_summary',
+                    $summaries[$membership->player_id] ?? [
+                        'wars' => 0,
+                        'attacks' => 0,
+                        'attacks_available' => 0,
+                        'missed_attacks' => 0,
+                        'average_stars' => 0,
+                    ],
+                );
+
+                return $membership;
+            });
+        };
+
+        if ($filters['sort'] === 'stars') {
+            $allMembersForSorting = $attachPerformance(
+                $members->with('status:id,slug')->get(),
+            )->sort(function (ClanMembership $left, ClanMembership $right) use ($filters): int {
+                $comparison = $left->performance_summary['average_stars']
+                    <=> $right->performance_summary['average_stars'];
+                $comparison = $filters['direction'] === 'desc'
+                    ? -$comparison
+                    : $comparison;
+
+                return $comparison !== 0
+                    ? $comparison
+                    : strcasecmp($left->name, $right->name);
+            })->values();
+            $currentPage = LengthAwarePaginator::resolveCurrentPage();
+            $members = new LengthAwarePaginator(
+                $allMembersForSorting->forPage($currentPage, 20)->values(),
+                $allMembersForSorting->count(),
+                20,
+                $currentPage,
+                ['path' => $request->url(), 'query' => $request->query()],
+            );
+        } else {
+            $members = $members
+                ->with('status:id,slug')
+                ->paginate(20)
+                ->withQueryString();
+            $members->setCollection($attachPerformance($members->getCollection()));
+        }
 
         return Inertia::render('Members/Index', [
             'memberStats' => [

@@ -14,7 +14,7 @@ class PlayerPerformanceQuery
 {
     /**
      * @param  list<int>  $playerIds
-     * @return array<int, array{wars: int, attacks: int, average_stars: float}>
+     * @return array<int, array{wars: int, attacks: int, attacks_available: int, missed_attacks: int, average_stars: float}>
      */
     public function summaries(Clan $clan, array $playerIds, int $window = 10): array
     {
@@ -63,10 +63,21 @@ class PlayerPerformanceQuery
             $playerAttacks = $attacks
                 ->where('attacker_player_id', $playerId)
                 ->whereIn('war_id', $warIds);
+            $completedWars = $wars->filter(
+                fn (War $war): bool => $this->isCompleted($war),
+            );
+            $completedAttackCount = $playerAttacks
+                ->whereIn('war_id', $completedWars->pluck('id'))
+                ->count();
+            $attacksAvailable = $completedWars->sum(
+                fn (War $war): int => $war->type === 'cwl' ? 1 : 2,
+            );
 
             return [$playerId => [
                 'wars' => $wars->count(),
                 'attacks' => $playerAttacks->count(),
+                'attacks_available' => $attacksAvailable,
+                'missed_attacks' => max(0, $attacksAvailable - $completedAttackCount),
                 'average_stars' => $this->average($playerAttacks, 'stars'),
             ]];
         })->all();
@@ -129,8 +140,7 @@ class PlayerPerformanceQuery
         $attackSeries = $chronologicalWars
             ->flatMap(function (War $war) use ($allAttacks): SupportCollection {
                 $opponents = $war->members->keyBy('player_tag');
-
-                return $allAttacks
+                $warAttacks = $allAttacks
                     ->where('war_id', $war->id)
                     ->sortBy('attack_order')
                     ->values()
@@ -145,6 +155,36 @@ class PlayerPerformanceQuery
                             $target?->map_position,
                         );
                     });
+
+                if (! $this->isCompleted($war)) {
+                    return $warAttacks;
+                }
+
+                $available = $war->type === 'cwl' ? 1 : 2;
+                $missingCount = max(0, $available - $warAttacks->count());
+
+                if ($missingCount === 0) {
+                    return $warAttacks;
+                }
+
+                foreach (range(1, $missingCount) as $missingIndex) {
+                    $warAttacks->push([
+                        'id' => "missing-{$war->id}-{$missingIndex}",
+                        'war_id' => $war->id,
+                        'type' => $war->type,
+                        'opponent_name' => $war->opponent_name,
+                        'end_time' => $war->end_time,
+                        'stars' => 0,
+                        'destruction_percentage' => null,
+                        'counterpart_tag' => null,
+                        'counterpart_name' => null,
+                        'counterpart_position' => null,
+                        'attack_order' => $warAttacks->count() + 1,
+                        'missed' => true,
+                    ]);
+                }
+
+                return $warAttacks;
             })
             ->values()
             ->all();
@@ -227,6 +267,12 @@ class PlayerPerformanceQuery
             'counterpart_position' => $counterpartPosition,
             'attack_order' => $attack->attack_order,
         ];
+    }
+
+    private function isCompleted(War $war): bool
+    {
+        return in_array($war->state, ['warEnded', 'ended'], true)
+            || ($war->end_time !== null && $war->end_time->isPast());
     }
 
     /**
