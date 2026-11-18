@@ -82,7 +82,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                 <div className="app-sidebar-heading">
                 <Link href={route('dashboard')} className="app-brand">
                     <span className="app-brand-logo">
-                        <img src="/images/clan_hub.png" alt="" />
+                        <img src="/images/clan_hub.png?v=13a7ea3208" alt="" />
                     </span>
                     <span className="app-brand-copy">
                         <strong>WAR CONSOLE</strong>
