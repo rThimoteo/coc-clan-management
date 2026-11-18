@@ -1,4 +1,4 @@
-const CACHE = 'clan-hub-offline-v1';
+const CACHE = 'clan-hub-offline-v2';
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {

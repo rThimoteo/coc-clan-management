@@ -1,4 +1,5 @@
 import InputError from '@/Components/InputError';
+import ClanSwitcher from '@/Components/ClanSwitcher';
 import InstallApp from '@/Components/InstallApp';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -24,6 +25,12 @@ export default function Edit() {
     return (
         <AuthenticatedLayout header="Perfil" eyebrow="CONFIGURAÇÕES DA CONTA">
             <Head title="Perfil" />
+
+            <section className="mb-6 border border-white/10 bg-zinc-900/80 p-5 lg:hidden" aria-label="Seleção de clã">
+                <h2 className="mb-2 font-display text-lg font-bold text-zinc-100">Seu clã ativo</h2>
+                <p className="mb-4 text-sm leading-6 text-zinc-400">Escolha o clã que deseja acompanhar nas páginas do aplicativo.</p>
+                <ClanSwitcher />
+            </section>
 
             <section className={`overflow-hidden border border-white/10 bg-zinc-900/80 ${cutPanel}`}>
                 <header className="grid gap-4 border-b border-white/10 bg-zinc-950/35 p-5 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
