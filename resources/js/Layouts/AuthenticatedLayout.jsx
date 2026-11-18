@@ -3,7 +3,6 @@ import {
     ChevronDown,
     LayoutDashboard,
     LogOut,
-    Menu,
     PanelLeftClose,
     PanelLeftOpen,
     Radio,
@@ -13,9 +12,10 @@ import {
     User,
     UserCog,
     Users,
-    X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import InstallApp from '@/Components/InstallApp';
+import MobileNavigation, { MobileBattleNavigation } from '@/Components/MobileNavigation';
 
 const navigation = [
     {
@@ -56,7 +56,6 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
         if (typeof window === 'undefined') return false;
         return window.localStorage.getItem('sidebar-collapsed') === 'true';
     });
-    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const profileMenu = useRef(null);
 
     useEffect(() => {
@@ -77,51 +76,18 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
         );
     }, [sidebarCollapsed]);
 
-    useEffect(() => {
-        if (!mobileSidebarOpen) return undefined;
-
-        const closeOnEscape = (event) => {
-            if (event.key === 'Escape') setMobileSidebarOpen(false);
-        };
-
-        document.body.style.overflow = 'hidden';
-        document.addEventListener('keydown', closeOnEscape);
-
-        return () => {
-            document.body.style.overflow = '';
-            document.removeEventListener('keydown', closeOnEscape);
-        };
-    }, [mobileSidebarOpen]);
-
-    const closeMobileSidebar = () => setMobileSidebarOpen(false);
-
     return (
-        <div className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''} ${mobileSidebarOpen ? 'is-mobile-sidebar-open' : ''}`}>
-            <button
-                type="button"
-                className="app-sidebar-backdrop"
-                onClick={closeMobileSidebar}
-                aria-label="Fechar menu"
-                tabIndex={mobileSidebarOpen ? 0 : -1}
-            />
+        <div className={`app-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`}>
             <aside className="app-sidebar" aria-label="Navegação da aplicação">
                 <div className="app-sidebar-heading">
-                <Link href={route('dashboard')} className="app-brand" onClick={closeMobileSidebar}>
+                <Link href={route('dashboard')} className="app-brand">
                     <span className="app-brand-logo">
-                        <img src="/images/clan_hub.png" alt="" />
+                        <img src="/images/clan_hub.png?v=13a7ea3208" alt="" />
                     </span>
                     <span className="app-brand-copy">
                         <strong>WAR CONSOLE</strong>
                     </span>
                 </Link>
-                    <button
-                        type="button"
-                        className="app-sidebar-toggle app-sidebar-toggle-mobile"
-                        onClick={closeMobileSidebar}
-                        aria-label="Fechar menu"
-                    >
-                        <X />
-                    </button>
                 </div>
 
                 <div className="app-nav-label">Módulos</div>
@@ -134,7 +100,6 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                             <Link
                                 key={item.route}
                                 href={route(item.route)}
-                                onClick={closeMobileSidebar}
                                 className={`app-nav-item ${active ? 'is-active' : ''}`}
                             >
                                 <span className="app-nav-icon">
@@ -157,7 +122,6 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                         <nav className="app-nav" aria-label="Administração">
                             <Link
                                 href={route('admin.users.index')}
-                                onClick={closeMobileSidebar}
                                 className={`app-nav-item ${route().current('admin.users.*') ? 'is-active' : ''}`}
                             >
                                 <span className="app-nav-icon">
@@ -171,7 +135,6 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                             {auth.user.role === 'admin' && (
                                 <Link
                                     href={route('admin.clans.index')}
-                                    onClick={closeMobileSidebar}
                                     className={`app-nav-item ${route().current('admin.clans.*') ? 'is-active' : ''}`}
                                 >
                                     <span className="app-nav-icon">
@@ -187,6 +150,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                     </>
                 )}
 
+                <InstallApp />
                 <div className="app-sidebar-footer">
                     <span className="app-status-dot" />
                     <span>
@@ -212,15 +176,6 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
 
             <div className="app-main">
                 <header className="app-topbar">
-                    <button
-                        type="button"
-                        className="app-mobile-menu-trigger"
-                        onClick={() => setMobileSidebarOpen(true)}
-                        aria-label="Abrir menu"
-                        aria-expanded={mobileSidebarOpen}
-                    >
-                        <Menu />
-                    </button>
                     <div className="app-topbar-context">
                         <span>WAR CONSOLE</span>
                         <i />
@@ -297,6 +252,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                 </header>
 
                 <main className="app-content">
+                    <MobileBattleNavigation />
                     <div className="app-page-heading">
                         <p>
                             <Radio />
@@ -307,6 +263,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                     {children}
                 </main>
             </div>
+            <MobileNavigation />
         </div>
     );
 }

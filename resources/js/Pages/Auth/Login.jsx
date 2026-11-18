@@ -33,7 +33,7 @@ export default function Login({ status }) {
                 <header className="grid justify-items-center gap-5 border-b border-white/10 bg-zinc-950/35 p-7 text-center">
                     <img
                         className="h-32 w-auto object-contain sm:h-36"
-                        src="/images/clan_hub.png"
+                        src="/images/clan_hub.png?v=13a7ea3208"
                         alt="Clan Hub"
                     />
                     <div>

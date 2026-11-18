@@ -370,3 +370,23 @@ roda em um container dedicado.
 - [ ] Criar inscrições para Liga de Guerra de Clãs.
 - [x] Registrar histórico de CWL em uma área separada.
 - [ ] Criar métricas de desempenho por jogador.
+
+## Aplicativo instalável (PWA)
+
+No celular, o Clan Hub pode ser instalado pelo botão **Instalar aplicativo** na
+página **Perfil**. No computador, o botão fica no menu lateral.
+Em navegadores compatíveis, o botão abre a instalação nativa. No iPhone/iPad,
+abra no Safari e use **Compartilhar → Adicionar à Tela de Início**. Depois da
+instalação, o aplicativo abre em uma janela própria.
+
+Para publicar, execute `npm run build` e disponibilize a aplicação por **HTTPS**
+(localhost também permite desenvolvimento). Publique também os arquivos de
+`public/`, incluindo `sw.js`, `manifest.webmanifest`, `offline.html` e `icons/`.
+O servidor deve servir `/sw.js` como JavaScript e permitir sua revalidação,
+sem cache imutável. O service worker só é registrado no build de produção.
+
+O acesso aos dados e as ações continuam exigindo internet. Sem conexão, abrir ou
+recarregar o aplicativo exibe uma página com a opção de tentar novamente.
+A navegação interna via Inertia não tem tratamento offline adicional. O cache contém
+somente essa página pública; páginas autenticadas e respostas Inertia não são
+armazenadas. Se alterar a página offline, incremente a versão do cache em `public/sw.js`.

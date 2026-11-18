@@ -1,7 +1,8 @@
 import InputError from '@/Components/InputError';
+import InstallApp from '@/Components/InstallApp';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { CheckCircle2, Save, User } from 'lucide-react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { CheckCircle2, LogOut, Save, User } from 'lucide-react';
 
 const cutPanel =
     '[clip-path:polygon(0_0,calc(100%-0.75rem)_0,100%_0.75rem,100%_100%,0.75rem_100%,0_calc(100%-0.75rem))]';
@@ -54,7 +55,6 @@ export default function Edit() {
                                 setData('name', event.target.value)
                             }
                             autoComplete="name"
-                            autoFocus
                             required
                         />
                         <InputError message={errors.name} className="mt-1" />
@@ -82,6 +82,25 @@ export default function Edit() {
                     </footer>
                 </form>
             </section>
+
+            {auth.user.role === 'admin' && (
+                <nav aria-label="Administração da conta" className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
+                    <Link href={route('admin.users.index')} className="inline-flex min-h-11 items-center text-sm font-semibold text-amber-300 underline underline-offset-4 hover:text-amber-200">
+                        Usuários
+                    </Link>
+                    <Link href={route('admin.clans.index')} className="inline-flex min-h-11 items-center text-sm font-semibold text-amber-300 underline underline-offset-4 hover:text-amber-200">
+                        Configurações do clã
+                    </Link>
+                </nav>
+            )}
+
+            <div className="mt-6 border-t border-white/10 pt-4">
+                <div className="max-w-sm lg:hidden"><InstallApp /></div>
+                <Link href={route('logout')} method="post" as="button" className="inline-flex min-h-11 items-center gap-2 px-2 text-sm font-semibold text-rose-300 hover:text-rose-200">
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                    Sair da conta
+                </Link>
+            </div>
         </AuthenticatedLayout>
     );
 }
