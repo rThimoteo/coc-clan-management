@@ -3420,20 +3420,23 @@
 
 @media (max-width: 1023px) {
     .app-sidebar,
-    .app-topbar .app-profile-menu {
+    .app-topbar {
         display: none;
     }
 
-    .app-topbar {
-        padding-top: max(.7rem, env(safe-area-inset-top, 0px));
+    html,
+    body {
+        touch-action: pan-x pan-y;
     }
 
-    .app-topbar .app-clan-switcher {
-        flex: 1;
-        max-width: none;
+    :root body input,
+    :root body select,
+    :root body textarea {
+        font-size: 16px;
     }
 
     .app-content {
+        padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
         padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
     }
 

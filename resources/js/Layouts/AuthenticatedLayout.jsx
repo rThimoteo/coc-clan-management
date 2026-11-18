@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     ChevronDown,
     LayoutDashboard,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import InstallApp from '@/Components/InstallApp';
+import ClanSwitcher from '@/Components/ClanSwitcher';
 import MobileNavigation, { MobileBattleNavigation } from '@/Components/MobileNavigation';
 
 const navigation = [
@@ -51,7 +52,6 @@ const navigation = [
 export default function AuthenticatedLayout({ header, eyebrow, children }) {
     const { auth, clanContext } = usePage().props;
     const [profileOpen, setProfileOpen] = useState(false);
-    const [switchingClan, setSwitchingClan] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
         return window.localStorage.getItem('sidebar-collapsed') === 'true';
@@ -182,40 +182,7 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
                         <strong>{header}</strong>
                     </div>
 
-                    <label className="app-clan-switcher">
-                        <span>Clã ativo</span>
-                        <select
-                            value={clanContext.active?.id ?? ''}
-                            disabled={
-                                switchingClan ||
-                                clanContext.available.length === 0
-                            }
-                            onChange={(event) => {
-                                setSwitchingClan(true);
-                                router.put(
-                                    route('clan-context.update'),
-                                    { clan_id: Number(event.target.value) },
-                                    {
-                                        preserveScroll: false,
-                                        preserveState: false,
-                                        onFinish: () =>
-                                            setSwitchingClan(false),
-                                    },
-                                );
-                            }}
-                            aria-label="Selecionar clã ativo"
-                        >
-                            {clanContext.available.length === 0 && (
-                                <option value="">Nenhum clã</option>
-                            )}
-                            {clanContext.available.map((clan) => (
-                                <option key={clan.id} value={clan.id}>
-                                    {clan.name ?? clan.tag}
-                                    {clan.is_default ? ' · padrão' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="ml-auto"><ClanSwitcher /></div>
 
                     <div className="app-profile-menu" ref={profileMenu}>
                         <button
@@ -253,6 +220,9 @@ export default function AuthenticatedLayout({ header, eyebrow, children }) {
 
                 <main className="app-content">
                     <MobileBattleNavigation />
+                    <div className="mb-3 text-xs font-semibold tracking-wide text-amber-300 lg:hidden">
+                        {clanContext.active?.name ?? clanContext.active?.tag ?? 'Sem clã ativo'}
+                    </div>
                     <div className="app-page-heading">
                         <p>
                             <Radio />
